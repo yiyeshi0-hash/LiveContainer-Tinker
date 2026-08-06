@@ -14,6 +14,10 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <stdlib.h>
+#include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <limits.h>
 #include "../litehook/src/litehook.h"
 #import "Tweaks/Tweaks.h"
 #include <mach-o/ldsyms.h>
@@ -663,12 +667,41 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
 
 static void exceptionHandler(NSException *exception) {
     NSString *error = [NSString stringWithFormat:@"%@\nCall stack: %@", exception.reason, exception.callStackSymbols];
+    [lcUserDefaults setObject:NSDate.date forKey:@"LCLaunchCrashDate"];
     if(isLiveProcess) {
         NSExtensionContext *context = [NSClassFromString(@"LiveProcessHandler") extensionContext];
         [context cancelRequestWithError:[NSError errorWithDomain:@"LiveProcess" code:1 userInfo:@{NSLocalizedDescriptionKey: error}]];
     } else {
         [lcUserDefaults setObject:error forKey:@"error"];
     }
+}
+
+static char tinkerCrashMarkerPath[PATH_MAX];
+
+static void tinkerCrashSignalHandler(int sig) {
+    int fd = open(tinkerCrashMarkerPath, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    if (fd >= 0) {
+        char buf[32];
+        int len = snprintf(buf, sizeof(buf), "%lld", (long long)time(NULL));
+        if (len > 0) {
+            write(fd, buf, (size_t)len);
+        }
+        close(fd);
+    }
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void installTinkerCrashHandlers(void) {
+    const char *home = getenv("LC_HOME_PATH");
+    if (home) {
+        snprintf(tinkerCrashMarkerPath, sizeof(tinkerCrashMarkerPath), "%s/Documents/LCLaunchCrashMarker", home);
+    }
+    signal(SIGABRT, tinkerCrashSignalHandler);
+    signal(SIGSEGV, tinkerCrashSignalHandler);
+    signal(SIGBUS, tinkerCrashSignalHandler);
+    signal(SIGILL, tinkerCrashSignalHandler);
+    signal(SIGFPE, tinkerCrashSignalHandler);
 }
 
 int LiveContainerMain(int argc, char *argv[]) {
@@ -807,6 +840,7 @@ int LiveContainerMain(int argc, char *argv[]) {
 
     }
     NSSetUncaughtExceptionHandler(&exceptionHandler);
+    installTinkerCrashHandlers();
     if (selectedApp || isSideStore) {
         [lcUserDefaults removeObjectForKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];

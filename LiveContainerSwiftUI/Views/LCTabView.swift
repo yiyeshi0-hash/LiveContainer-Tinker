@@ -230,7 +230,19 @@ struct LCTabView: View {
             return
         }
 
-        app.appInfo.tinkerStatus = error == nil ? "Works" : "Broken"
+        let startDate = UserDefaults.standard.object(forKey: "LCLaunchCandidateDate") as? Date ?? Date()
+        let crashDate = crashMarkerDate() ?? (UserDefaults.standard.object(forKey: "LCLaunchCrashDate") as? Date)
+        let elapsed = crashDate.map { $0.timeIntervalSince(startDate) } ?? 0
+        let status: String
+        if let crashDate {
+            status = elapsed > 15 ? "Partial" : "Broken"
+            _ = crashDate
+        } else if error != nil {
+            status = "Broken"
+        } else {
+            status = "Works"
+        }
+        app.appInfo.tinkerStatus = status
         if let error {
             let oldNotes = app.appInfo.tinkerNotes ?? ""
             let prefix = oldNotes.isEmpty ? "" : oldNotes + "\n"
@@ -241,6 +253,18 @@ struct LCTabView: View {
 
         UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateBundlePath")
         UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateDate")
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCrashDate")
+    }
+
+    func crashMarkerDate() -> Date? {
+        guard let home = ProcessInfo.processInfo.environment["LC_HOME_PATH"] else { return nil }
+        let markerURL = URL(fileURLWithPath: home).appendingPathComponent("Documents/LCLaunchCrashMarker")
+        guard let text = try? String(contentsOf: markerURL, encoding: .utf8),
+              let timestamp = TimeInterval(text) else {
+            return nil
+        }
+        try? FileManager.default.removeItem(at: markerURL)
+        return Date(timeIntervalSince1970: timestamp)
     }
     
     func copyError() {
