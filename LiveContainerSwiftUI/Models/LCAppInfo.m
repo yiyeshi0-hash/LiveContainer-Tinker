@@ -773,4 +773,43 @@
     [self save];
 }
 
+- (NSString*)tinkerStatus {
+    return _info[@"tinkerStatus"];
+}
+
+- (void)setTinkerStatus:(NSString *)tinkerStatus {
+    if([tinkerStatus isEqualToString: @""]) {
+        _info[@"tinkerStatus"] = nil;
+    } else {
+        _info[@"tinkerStatus"] = tinkerStatus;
+    }
+    [self save];
+}
+
+- (NSString*)tinkerNotes {
+    return _info[@"tinkerNotes"];
+}
+
+- (void)setTinkerNotes:(NSString *)tinkerNotes {
+    if([tinkerNotes isEqualToString: @""]) {
+        _info[@"tinkerNotes"] = nil;
+    } else {
+        _info[@"tinkerNotes"] = tinkerNotes;
+    }
+    [self save];
+}
+
+- (NSString*)tinkerTags {
+    return _info[@"tinkerTags"];
+}
+
+- (void)setTinkerTags:(NSString *)tinkerTags {
+    if([tinkerTags isEqualToString: @""]) {
+        _info[@"tinkerTags"] = nil;
+    } else {
+        _info[@"tinkerTags"] = tinkerTags;
+    }
+    [self save];
+}
+
 @end

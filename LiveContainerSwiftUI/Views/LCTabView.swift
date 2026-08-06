@@ -52,6 +52,9 @@ struct LCTabView: View {
                             LCTweaksView()
                         }
                     }
+                    Tab("折腾中心", systemImage: "hammer", value: LCTabIdentifier.tinker) {
+                        TinkerCenterView()
+                    }
                     Tab("lc.tabView.settings".loc, systemImage: "gearshape.fill", value: LCTabIdentifier.settings) {
                         LCSettingsView()
                     }
@@ -87,6 +90,12 @@ struct LCTabView: View {
                             }
                             .tag(LCTabIdentifier.tweaks)
                     }
+
+                    TinkerCenterView()
+                        .tabItem {
+                            Label("折腾", systemImage: "hammer")
+                        }
+                        .tag(LCTabIdentifier.tinker)
                     
                     LCSettingsView()
                         .tabItem {
@@ -180,6 +189,8 @@ struct LCTabView: View {
                 sharedModel.selectedTab = .settings
             case "source":
                 sharedModel.selectedTab = .sources
+            case "tinker":
+                sharedModel.selectedTab = .tinker
             default:
                 return
             }

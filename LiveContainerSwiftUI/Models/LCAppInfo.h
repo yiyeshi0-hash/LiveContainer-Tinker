@@ -47,6 +47,9 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 @property NSDate* lastLaunched;
 @property NSDate* installationDate;
 @property NSString* remark;
+@property NSString* tinkerStatus;
+@property NSString* tinkerNotes;
+@property NSString* tinkerTags;
 #if is32BitSupported
 @property bool is32bit;
 #endif

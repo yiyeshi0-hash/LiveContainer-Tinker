@@ -315,6 +315,7 @@ public enum LCTabIdentifier: Hashable {
     case sources
     case apps
     case tweaks
+    case tinker
     case settings
     case search
 }
