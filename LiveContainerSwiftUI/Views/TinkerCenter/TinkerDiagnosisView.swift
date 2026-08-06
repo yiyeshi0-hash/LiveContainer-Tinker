@@ -241,6 +241,7 @@ private struct TinkerDiagnosisDetailView: View {
     let app: LCAppModel
 
     @State private var refreshToken = UUID()
+    @State private var retryIndex = 0
 
     private static let retryConfigs: [TinkerRetryConfig] = [
         TinkerRetryConfig(name: "JIT On + Classic 0", jit: true, classic: false, tweakOff: false, spoofSDK: false),
@@ -342,15 +343,6 @@ private struct TinkerDiagnosisDetailView: View {
             }
         }
         return Int(total / Double(history.count) * 100)
-    }
-
-    private var retryKey: String {
-        "TinkerRetryIndex.\((app.appInfo.relativeBundlePath as String?) ?? app.appInfo.bundleIdentifier() ?? "")"
-    }
-
-    private var retryIndex: Int {
-        get { UserDefaults.standard.integer(forKey: retryKey) }
-        set { UserDefaults.standard.set(newValue, forKey: retryKey) }
     }
 
     private var suggestions: [TinkerSuggestion] {
@@ -519,6 +511,9 @@ private struct TinkerDiagnosisDetailView: View {
         }
         .id(refreshToken)
         .navigationTitle(app.displayName)
+        .onAppear {
+            retryIndex = UserDefaults.standard.integer(forKey: retryKey)
+        }
     }
 
     private func environmentComparison() -> [String] {
@@ -555,9 +550,14 @@ private struct TinkerDiagnosisDetailView: View {
         let index = retryIndex % configs.count
         applyRetry(configs[index])
         retryIndex = (index + 1) % configs.count
+        UserDefaults.standard.set(retryIndex, forKey: retryKey)
         Task {
             try? await app.runApp()
         }
+    }
+
+    private var retryKey: String {
+        "TinkerRetryIndex.\((app.appInfo.relativeBundlePath as String?) ?? app.appInfo.bundleIdentifier() ?? "")"
     }
 
     private func applyRetry(_ config: TinkerRetryConfig) {
