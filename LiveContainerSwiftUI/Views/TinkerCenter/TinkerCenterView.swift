@@ -1,5 +1,11 @@
 import SwiftUI
 
+extension LCAppModel: Identifiable {
+    public var id: String {
+        (appInfo.relativeBundlePath as String?) ?? UUID().uuidString
+    }
+}
+
 struct TinkerCenterView: View {
     @EnvironmentObject var sharedModel: SharedModel
 
