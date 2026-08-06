@@ -253,8 +253,8 @@ struct LCTabView: View {
         let classicMode = UserDefaults.standard.integer(forKey: "LCLaunchCandidateClassicMode")
         let jit = UserDefaults.standard.bool(forKey: "LCLaunchCandidateJIT")
         let container = UserDefaults.standard.string(forKey: "LCLaunchCandidateContainer") ?? ""
-        var history: [[String: Any]] = []
-        if let old = app.appInfo.tinkerHistory as? [[String: Any]] {
+        var history: [[AnyHashable: Any]] = []
+        if let old = app.appInfo.tinkerHistory as? [[AnyHashable: Any]] {
             history = old
         }
         history.append([
@@ -268,7 +268,7 @@ struct LCTabView: View {
         if history.count > 20 {
             history.removeFirst(history.count - 20)
         }
-        app.appInfo.tinkerHistory = history as NSArray
+        app.appInfo.tinkerHistory = history
 
         app.objectWillChange.send()
 

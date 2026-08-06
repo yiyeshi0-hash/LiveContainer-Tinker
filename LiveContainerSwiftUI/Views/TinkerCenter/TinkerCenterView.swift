@@ -209,7 +209,7 @@ private struct TinkerAppEditor: View {
                 }
 
                 Section("启动历史") {
-                    let history = (app.appInfo.tinkerHistory as? [[String: Any]]) ?? []
+                    let history = (app.appInfo.tinkerHistory as? [[AnyHashable: Any]]) ?? []
                     if history.isEmpty {
                         Text("暂无记录")
                             .foregroundStyle(.secondary)
@@ -217,22 +217,22 @@ private struct TinkerAppEditor: View {
                     ForEach(history.indices, id: \.self) { index in
                         let item = history[index]
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(item["status"] as? String ?? "Unknown")
+                            Text(item[AnyHashable("status")] as? String ?? "Unknown")
                                 .font(.headline)
-                            if let date = item["date"] as? Date {
+                            if let date = item[AnyHashable("date")] as? Date {
                                 Text(Self.dateString(date))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            Text("JIT: \((item["jit"] as? Bool ?? false) ? "Yes" : "No") · Classic: \(item["classicMode"] as? Int ?? 0)")
+                            Text("JIT: \((item[AnyHashable("jit")] as? Bool ?? false) ? "Yes" : "No") · Classic: \(item[AnyHashable("classicMode")] as? Int ?? 0)")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            if let container = item["container"] as? String, !container.isEmpty {
+                            if let container = item[AnyHashable("container")] as? String, !container.isEmpty {
                                 Text("Container: \(container)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            if let error = item["error"] as? String, !error.isEmpty {
+                            if let error = item[AnyHashable("error")] as? String, !error.isEmpty {
                                 Text(error)
                                     .font(.caption2)
                                     .foregroundStyle(.red)
@@ -295,7 +295,7 @@ private enum TinkerIPAScanner {
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
 
-        let result = extract(url.path, temp.path, Progress.discreteProgress())
+        let result = extract(url.path, temp.path, Progress.discreteProgress(totalUnitCount: 100))
         guard result == 0 else {
             throw NSError(domain: "TinkerIPAScanner", code: 1, userInfo: [NSLocalizedDescriptionKey: "IPA 解压失败"])
         }
