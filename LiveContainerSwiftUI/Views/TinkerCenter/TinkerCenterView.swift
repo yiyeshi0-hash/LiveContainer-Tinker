@@ -51,6 +51,7 @@ struct TinkerCenterView: View {
                 Picker("Mode", selection: $mode) {
                     Text("App").tag(0)
                     Text("IPA").tag(1)
+                    Text("诊断").tag(2)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -103,7 +104,11 @@ struct TinkerCenterView: View {
                     }
                     .id(refreshToken)
                 } else {
-                    TinkerIPAScanView()
+                    if mode == 1 {
+                        TinkerIPAScanView()
+                    } else {
+                        TinkerDiagnosisView()
+                    }
                 }
             }
             .navigationTitle("折腾中心")
@@ -446,7 +451,7 @@ private struct TinkerIPAScanView: View {
     }
 }
 
-private struct TinkerInfoRow: View {
+struct TinkerInfoRow: View {
     let label: String
     let value: String
 
