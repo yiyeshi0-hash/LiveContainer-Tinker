@@ -226,6 +226,9 @@ class LCAppModel: ObservableObject, Hashable {
             uiSelectedContainer = uiContainers.first { $0.folderName == containerFolderName } ?? uiSelectedContainer
         }
         let currentDataFolder = containerFolderName ?? uiSelectedContainer?.folderName
+
+        UserDefaults.standard.set((self.appInfo.relativeBundlePath as String?) ?? "", forKey: "LCLaunchCandidateBundlePath")
+        UserDefaults.standard.set(Date(), forKey: "LCLaunchCandidateDate")
         
         let classicMode = appInfo.defaultClassicMode
         let multitask = classicMode == 0 ? (multitask ?? shouldLaunchInMultitaskMode) : false

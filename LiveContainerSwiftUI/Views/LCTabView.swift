@@ -210,11 +210,37 @@ struct LCTabView: View {
         }
         
         guard let errorStr else {
+            markAutoStatus(error: nil)
             return
         }
         UserDefaults.standard.removeObject(forKey: "error")
         errorInfo = errorStr
         crashReportShow = true
+        markAutoStatus(error: errorStr)
+    }
+
+    func markAutoStatus(error: String?) {
+        guard let candidatePath = UserDefaults.standard.string(forKey: "LCLaunchCandidateBundlePath") else {
+            return
+        }
+        let allApps = DataManager.shared.model.apps + DataManager.shared.model.hiddenApps
+        guard let app = allApps.first(where: {
+            ($0.appInfo.relativeBundlePath as String?) == candidatePath
+        }) else {
+            return
+        }
+
+        app.appInfo.tinkerStatus = error == nil ? "Works" : "Broken"
+        if let error {
+            let oldNotes = app.appInfo.tinkerNotes ?? ""
+            let prefix = oldNotes.isEmpty ? "" : oldNotes + "\n"
+            let trimmed = String(error.prefix(500))
+            app.appInfo.tinkerNotes = prefix + "Auto: \(trimmed)"
+        }
+        app.objectWillChange.send()
+
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateBundlePath")
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateDate")
     }
     
     func copyError() {
