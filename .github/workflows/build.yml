@@ -9,6 +9,10 @@ on:
         description: Create a nightly release
         type: boolean
         required: false
+      release_version:
+        description: Version label for versioned IPA artifacts
+        type: string
+        default: v1.4
 
 jobs:
   build:
@@ -70,6 +74,17 @@ jobs:
         run: |
           sh .github/build_github.sh
 
+      - name: Resolve version
+        id: version
+        run: echo "version=${VERSION:-v1.4}" >> "$GITHUB_OUTPUT"
+        env:
+          VERSION: ${{ inputs.release_version }}
+
+      - name: Prepare versioned IPA
+        run: |
+          cp "$scheme.ipa" "LiveContainer-Tinker-${{ steps.version.outputs.version }}.ipa"
+          cp "$scheme+SideStore.ipa" "LiveContainer-Tinker-SideStore-${{ steps.version.outputs.version }}.ipa"
+
       - name: Upload a Build Artifact
         uses: actions/upload-artifact@v7
         with:
@@ -81,6 +96,18 @@ jobs:
         with:
           name: ${{ env.scheme }}+SideStore.ipa
           path: ${{ env.scheme }}+SideStore.ipa
+
+      - name: Upload Versioned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: LiveContainer-Tinker-${{ steps.version.outputs.version }}.ipa
+          path: LiveContainer-Tinker-${{ steps.version.outputs.version }}.ipa
+
+      - name: Upload Versioned SideStore IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: LiveContainer-Tinker-SideStore-${{ steps.version.outputs.version }}.ipa
+          path: LiveContainer-Tinker-SideStore-${{ steps.version.outputs.version }}.ipa
 
   release__nightly:
     name: Nightly Release

@@ -16,7 +16,7 @@ public final class DownloadHelper : ObservableObject {
     private var downloadTask: URLSessionDownloadTask?
     private var continuation: UnsafeContinuation<(), Never>?
     
-    func download(url: URL, to: URL) async throws {
+    func download(url: URL, to: URL, headers: [String: String] = [:]) async throws {
         var ansError: Error? = nil
 
         await MainActor.run {
@@ -62,7 +62,9 @@ public final class DownloadHelper : ObservableObject {
 
             }), delegateQueue: .main)
 
-            downloadTask = session.downloadTask(with: url)
+            var request = URLRequest(url: url)
+            request.allHTTPHeaderFields = headers
+            downloadTask = session.downloadTask(with: request)
             downloadTask?.resume()
         }
         if let ansError {

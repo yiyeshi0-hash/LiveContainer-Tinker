@@ -52,6 +52,7 @@ struct TinkerCenterView: View {
                     Text("App").tag(0)
                     Text("IPA").tag(1)
                     Text("诊断").tag(2)
+                    Text("云构建").tag(3)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -106,8 +107,10 @@ struct TinkerCenterView: View {
                 } else {
                     if mode == 1 {
                         TinkerIPAScanView()
-                    } else {
+                    } else if mode == 2 {
                         TinkerDiagnosisView()
+                    } else {
+                        LCCloudBuildView()
                     }
                 }
             }
@@ -282,7 +285,7 @@ private struct TinkerAppEditor: View {
     }
 }
 
-private struct TinkerIPAScanResult: Identifiable {
+struct TinkerIPAScanResult: Identifiable {
     let id = UUID()
     let displayName: String
     let bundleID: String
@@ -290,15 +293,17 @@ private struct TinkerIPAScanResult: Identifiable {
     let minimumOS: String
     let executable: String
     let architecture: String
+    let runtimeSummary: String
     let frameworks: [String]
     let fileCount: Int
     let totalSize: Int64
 }
 
-private enum TinkerIPAScanner {
+enum TinkerIPAScanner {
     static func scan(url: URL) throws -> TinkerIPAScanResult {
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temp) }
 
         let result = extract(url.path, temp.path, Progress.discreteProgress(totalUnitCount: 100))
         guard result == 0 else {
@@ -324,6 +329,7 @@ private enum TinkerIPAScanner {
         let executable = plist["CFBundleExecutable"] as? String ?? ""
         let architecture = executableArchitecture(appDir.appendingPathComponent(executable))
         let frameworks = listFrameworks(appDir)
+        let runtimeSummary = runtimeSummary(appDir)
         let totalSize = files.reduce(Int64(0)) { total, path in
             let full = temp.appendingPathComponent(path)
             let size = (try? FileManager.default.attributesOfItem(atPath: full.path)[.size] as? Int64) ?? 0
@@ -337,6 +343,7 @@ private enum TinkerIPAScanner {
             minimumOS: plist["MinimumOSVersion"] as? String ?? "Unknown",
             executable: executable,
             architecture: architecture,
+            runtimeSummary: runtimeSummary,
             frameworks: frameworks,
             fileCount: files.count,
             totalSize: totalSize
@@ -366,11 +373,100 @@ private enum TinkerIPAScanner {
             .filter { $0.hasSuffix(".framework") || $0.hasSuffix(".dylib") }
             .sorted()
     }
+
+    private static func runtimeSummary(_ appDir: URL) -> String {
+        let fm = FileManager.default
+        let runtimesURL = appDir.appendingPathComponent("java_runtimes")
+        guard let entries = try? fm.contentsOfDirectory(atPath: runtimesURL.path) else {
+            return "未找到 JRE"
+        }
+
+        let runtimeNames = entries.filter {
+            $0.localizedCaseInsensitiveContains("openjdk") ||
+            $0.localizedCaseInsensitiveContains("jre") ||
+            $0.localizedCaseInsensitiveContains("jdk")
+        }
+        guard !runtimeNames.isEmpty else { return "未找到 JRE" }
+
+        var healthy = 0
+        var nested = 0
+        for name in runtimeNames {
+            let root = runtimesURL.appendingPathComponent(name)
+            let nestedRoot = root.appendingPathComponent(name)
+            let releaseExists = fm.fileExists(atPath: root.appendingPathComponent("release").path)
+            let jvmExists = fm.fileExists(atPath: root.appendingPathComponent("lib/libjvm.dylib").path) ||
+                fm.fileExists(atPath: root.appendingPathComponent("lib/server/libjvm.dylib").path)
+            let nestedReleaseExists = fm.fileExists(atPath: nestedRoot.appendingPathComponent("release").path)
+
+            if releaseExists && jvmExists {
+                healthy += 1
+            } else if nestedReleaseExists {
+                nested += 1
+            }
+        }
+
+        if nested > 0 {
+            return "JRE \(runtimeNames.count) 个，发现 \(nested) 个嵌套目录"
+        }
+        if healthy > 0 {
+            return "JRE \(healthy) 个正常"
+        }
+        return "JRE 目录存在但结构未知"
+    }
+}
+
+struct TinkerIPAResultCard: View {
+    let result: TinkerIPAScanResult
+    let installURL: URL
+    let onInstall: (() -> Void)?
+
+    init(result: TinkerIPAScanResult, installURL: URL, onInstall: (() -> Void)? = nil) {
+        self.result = result
+        self.installURL = installURL
+        self.onInstall = onInstall
+    }
+
+    var body: some View {
+        Section("应用信息") {
+            TinkerInfoRow(label: "名称", value: result.displayName)
+            TinkerInfoRow(label: "Bundle ID", value: result.bundleID)
+            TinkerInfoRow(label: "版本", value: result.version)
+            TinkerInfoRow(label: "最低系统", value: result.minimumOS)
+            TinkerInfoRow(label: "可执行文件", value: result.executable)
+            TinkerInfoRow(label: "架构", value: result.architecture)
+        }
+
+        Section("包结构") {
+            TinkerInfoRow(label: "文件数", value: "\(result.fileCount)")
+            TinkerInfoRow(label: "解压大小", value: String(format: "%.2f MB", Double(result.totalSize) / 1_000_000))
+            TinkerInfoRow(label: "运行时", value: result.runtimeSummary)
+            if result.frameworks.isEmpty {
+                Text("未发现内嵌 Frameworks")
+                    .font(.caption)
+            } else {
+                ForEach(result.frameworks, id: \.self) { framework in
+                    Text(framework)
+                        .font(.caption)
+                }
+            }
+        }
+
+        if let onInstall {
+            Section {
+                Button {
+                    onInstall()
+                } label: {
+                    Label("安装到 LiveContainer", systemImage: "square.and.arrow.down.on.square")
+                }
+            }
+        }
+    }
 }
 
 private struct TinkerIPAScanView: View {
     @State private var showImporter = false
     @State private var result: TinkerIPAScanResult?
+    @State private var installURL: URL?
     @State private var isScanning = false
     @State private var errorMessage: String?
 
@@ -393,23 +489,9 @@ private struct TinkerIPAScanView: View {
                 }
             }
 
-            if let result {
-                Section("应用信息") {
-                    TinkerInfoRow(label: "名称", value: result.displayName)
-                    TinkerInfoRow(label: "Bundle ID", value: result.bundleID)
-                    TinkerInfoRow(label: "版本", value: result.version)
-                    TinkerInfoRow(label: "最低系统", value: result.minimumOS)
-                    TinkerInfoRow(label: "可执行文件", value: result.executable)
-                    TinkerInfoRow(label: "架构", value: result.architecture)
-                }
-
-                Section("包结构") {
-                    TinkerInfoRow(label: "文件数", value: "\(result.fileCount)")
-                    TinkerInfoRow(label: "解压大小", value: String(format: "%.2f MB", Double(result.totalSize) / 1_000_000))
-                    ForEach(result.frameworks, id: \.self) { framework in
-                        Text(framework)
-                            .font(.caption)
-                    }
+            if let result, let installURL {
+                TinkerIPAResultCard(result: result, installURL: installURL) {
+                    install(installURL)
                 }
             }
         }
@@ -434,14 +516,20 @@ private struct TinkerIPAScanView: View {
         isScanning = true
         errorMessage = nil
         self.result = nil
+        self.installURL = nil
         let accessing = url.startAccessingSecurityScopedResource()
 
         Task {
             do {
+                let localURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("tinker-ipa-\(UUID().uuidString).ipa")
+                try? FileManager.default.removeItem(at: localURL)
+                try FileManager.default.copyItem(at: url, to: localURL)
                 let scanResult = try await Task.detached(priority: .userInitiated) {
-                    try TinkerIPAScanner.scan(url: url)
+                    try TinkerIPAScanner.scan(url: localURL)
                 }.value
                 result = scanResult
+                installURL = localURL
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -450,6 +538,10 @@ private struct TinkerIPAScanView: View {
             }
             isScanning = false
         }
+    }
+
+    private func install(_ url: URL) {
+        NotificationCenter.default.post(name: NSNotification.InstallAppNotification, object: ["url": url])
     }
 }
 
