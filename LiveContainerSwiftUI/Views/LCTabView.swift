@@ -58,16 +58,6 @@ struct LCTabView: View {
                     Tab("lc.tabView.settings".loc, systemImage: "gearshape.fill", value: LCTabIdentifier.settings) {
                         LCSettingsView()
                     }
-                    Tab("Search".loc, systemImage: "magnifyingglass", value: LCTabIdentifier.search, role: .search) {
-                        if previousSelectedTab == .sources {
-                            sourcesView
-                                .searchable(text: $searchContextSource.query)
-                        } else {
-                            appListView
-                                .searchable(text: $searchContextAppList.query)
-                        }
-
-                    }
                 }
             } else {
                 TabView(selection: $sharedModel.selectedTab) {
