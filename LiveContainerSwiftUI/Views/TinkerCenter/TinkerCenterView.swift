@@ -306,8 +306,10 @@ private enum TinkerIPAScanner {
         }
 
         let files = try FileManager.default.subpathsOfDirectory(atPath: temp.path)
-        let appRoot = files.first { $0.hasSuffix(".app") || $0.contains(".app/") }?
-            .components(separatedBy: "/").first
+        let appEntry = files.first { $0.hasSuffix(".app") || $0.contains(".app/") }
+        let appRoot = appEntry?
+            .components(separatedBy: "/")
+            .first(where: { $0.hasSuffix(".app") })
         guard let appRoot, appRoot.hasSuffix(".app") else {
             throw NSError(domain: "TinkerIPAScanner", code: 2, userInfo: [NSLocalizedDescriptionKey: "IPA 里没有找到 .app"])
         }

@@ -41,8 +41,30 @@ private struct TinkerSuggestion: Identifiable {
     let apply: (LCAppModel) -> Void
 }
 
+private enum TinkerHealthStatus: String {
+    case pass = "通过"
+    case warn = "注意"
+    case fail = "失败"
+}
+
+private struct TinkerHealthCheck: Identifiable {
+    let id = UUID()
+    let name: String
+    let status: TinkerHealthStatus
+    let detail: String
+}
+
+private struct TinkerRetryConfig {
+    let name: String
+    let jit: Bool
+    let classic: Bool
+    let tweakOff: Bool
+    let spoofSDK: Bool
+}
+
 struct TinkerDiagnosisView: View {
     @EnvironmentObject var sharedModel: SharedModel
+    @State private var selectedForBatch: Set<String> = []
 
     private var diagnosisApps: [LCAppModel] {
         let apps = sharedModel.apps + sharedModel.hiddenApps
@@ -55,6 +77,29 @@ struct TinkerDiagnosisView: View {
 
     var body: some View {
         List {
+            Section("批量测试") {
+                if !savedBatchPaths.isEmpty {
+                    let remaining = max(0, savedBatchPaths.count - batchIndex)
+                    Text("队列剩余 \(remaining) 个 App")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("测试下一个") {
+                        continueBatch()
+                    }
+                }
+
+                ForEach(diagnosisApps, id: \.id) { app in
+                    Toggle(isOn: isSelected(app)) {
+                        Text(app.displayName)
+                    }
+                }
+
+                Button("开始批量测试") {
+                    startBatch()
+                }
+                .disabled(selectedForBatch.isEmpty)
+            }
+
             if diagnosisApps.isEmpty {
                 Text("还没有可诊断的 App，先启动几次再回来")
                     .foregroundStyle(.secondary)
@@ -67,6 +112,62 @@ struct TinkerDiagnosisView: View {
                     TinkerDiagnosisRow(app: app)
                 }
             }
+        }
+    }
+
+    private var savedBatchPaths: [String] {
+        UserDefaults.standard.stringArray(forKey: "TinkerBatchQueue") ?? []
+    }
+
+    private var batchIndex: Int {
+        UserDefaults.standard.integer(forKey: "TinkerBatchIndex")
+    }
+
+    private func isSelected(_ app: LCAppModel) -> Binding<Bool> {
+        Binding(
+            get: { selectedForBatch.contains(app.id) },
+            set: { selected in
+                if selected {
+                    selectedForBatch.insert(app.id)
+                } else {
+                    selectedForBatch.remove(app.id)
+                }
+            }
+        )
+    }
+
+    private func startBatch() {
+        let paths = diagnosisApps
+            .filter { selectedForBatch.contains($0.id) }
+            .compactMap { $0.appInfo.relativeBundlePath as String? }
+        guard !paths.isEmpty else { return }
+        UserDefaults.standard.set(paths, forKey: "TinkerBatchQueue")
+        UserDefaults.standard.set(0, forKey: "TinkerBatchIndex")
+        launchBatch(at: 0)
+    }
+
+    private func continueBatch() {
+        launchBatch(at: batchIndex)
+    }
+
+    private func launchBatch(at index: Int) {
+        let paths = savedBatchPaths
+        guard index < paths.count else {
+            UserDefaults.standard.removeObject(forKey: "TinkerBatchQueue")
+            UserDefaults.standard.removeObject(forKey: "TinkerBatchIndex")
+            return
+        }
+        let allApps = sharedModel.apps + sharedModel.hiddenApps
+        guard let app = allApps.first(where: {
+            ($0.appInfo.relativeBundlePath as String?) == paths[index]
+        }) else {
+            UserDefaults.standard.set(index + 1, forKey: "TinkerBatchIndex")
+            continueBatch()
+            return
+        }
+        UserDefaults.standard.set(index + 1, forKey: "TinkerBatchIndex")
+        Task {
+            try? await app.runApp()
         }
     }
 }
@@ -97,6 +198,10 @@ private struct TinkerDiagnosisRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            Text("稳定性 \(stabilityScore)/100")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             if !latestError.isEmpty {
                 Text(TinkerIssueCategory.classify(latestError).rawValue)
                     .font(.caption)
@@ -107,6 +212,19 @@ private struct TinkerDiagnosisRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    private var stabilityScore: Int {
+        guard !history.isEmpty else { return 0 }
+        let total = history.reduce(0.0) { partial, item in
+            switch item[AnyHashable("status")] as? String {
+            case "Works": return partial + 1
+            case "Partial": return partial + 0.5
+            case "Broken": return partial
+            default: return partial
+            }
+        }
+        return Int(total / Double(history.count) * 100)
     }
 
     private var statusColor: Color {
@@ -124,6 +242,15 @@ private struct TinkerDiagnosisDetailView: View {
 
     @State private var refreshToken = UUID()
 
+    private static let retryConfigs: [TinkerRetryConfig] = [
+        TinkerRetryConfig(name: "JIT On + Classic 0", jit: true, classic: false, tweakOff: false, spoofSDK: false),
+        TinkerRetryConfig(name: "JIT On + Classic 1", jit: true, classic: true, tweakOff: false, spoofSDK: false),
+        TinkerRetryConfig(name: "JIT On + 关 Tweak", jit: true, classic: false, tweakOff: true, spoofSDK: false),
+        TinkerRetryConfig(name: "JIT On + SDK 伪装", jit: true, classic: false, tweakOff: false, spoofSDK: true),
+        TinkerRetryConfig(name: "JIT Off + Classic 0", jit: false, classic: false, tweakOff: true, spoofSDK: false),
+        TinkerRetryConfig(name: "JIT Off + Classic 1", jit: false, classic: true, tweakOff: true, spoofSDK: false),
+    ]
+
     private var history: [[AnyHashable: Any]] {
         (app.appInfo.tinkerHistory as? [[AnyHashable: Any]]) ?? []
     }
@@ -138,6 +265,92 @@ private struct TinkerDiagnosisDetailView: View {
 
     private var issueCategory: TinkerIssueCategory {
         TinkerIssueCategory.classify(latestError)
+    }
+
+    private var healthChecks: [TinkerHealthCheck] {
+        var checks: [TinkerHealthCheck] = []
+        let fm = FileManager.default
+
+        if let bundlePath = app.appInfo.bundlePath() {
+            if fm.fileExists(atPath: bundlePath) {
+                checks.append(TinkerHealthCheck(name: "App 目录", status: .pass, detail: bundlePath))
+            } else {
+                checks.append(TinkerHealthCheck(name: "App 目录", status: .fail, detail: "找不到 App 目录"))
+            }
+
+            let infoPath = URL(fileURLWithPath: bundlePath).appendingPathComponent("Info.plist").path
+            if fm.fileExists(atPath: infoPath) {
+                checks.append(TinkerHealthCheck(name: "Info.plist", status: .pass, detail: "存在"))
+            } else {
+                checks.append(TinkerHealthCheck(name: "Info.plist", status: .fail, detail: "缺失"))
+            }
+
+            if let info = NSDictionary(contentsOfFile: infoPath),
+               let execName = info["CFBundleExecutable"] as? String {
+                let execPath = URL(fileURLWithPath: bundlePath).appendingPathComponent(execName).path
+                if fm.fileExists(atPath: execPath) {
+                    checks.append(TinkerHealthCheck(name: "可执行文件", status: .pass, detail: execName))
+                } else {
+                    checks.append(TinkerHealthCheck(name: "可执行文件", status: .fail, detail: "\(execName) 缺失"))
+                }
+            }
+        } else {
+            checks.append(TinkerHealthCheck(name: "App 目录", status: .fail, detail: "Bundle Path 为空"))
+        }
+
+        if let dataUUID = app.appInfo.dataUUID {
+            let privateContainer = LCPath.dataPath.appendingPathComponent(dataUUID)
+            let sharedContainer = LCPath.lcGroupDataPath.appendingPathComponent(dataUUID)
+            if fm.fileExists(atPath: privateContainer.path) || fm.fileExists(atPath: sharedContainer.path) {
+                checks.append(TinkerHealthCheck(name: "数据容器", status: .pass, detail: dataUUID))
+            } else {
+                checks.append(TinkerHealthCheck(name: "数据容器", status: .warn, detail: "首次启动会自动创建"))
+            }
+        } else {
+            checks.append(TinkerHealthCheck(name: "数据容器", status: .warn, detail: "尚未分配默认容器"))
+        }
+
+        checks.append(TinkerHealthCheck(
+            name: "JIT",
+            status: app.appInfo.isJITNeeded ? .warn : .pass,
+            detail: app.appInfo.isJITNeeded ? "需要 JIT，请确认已启用" : "不强制 JIT"
+        ))
+
+        checks.append(TinkerHealthCheck(
+            name: "Tweak 注入",
+            status: app.appInfo.dontInjectTweakLoader ? .warn : .pass,
+            detail: app.appInfo.dontInjectTweakLoader ? "已禁用注入" : "正常"
+        ))
+
+        checks.append(TinkerHealthCheck(
+            name: "SDK 伪装",
+            status: app.appInfo.spoofSDKVersion ? .pass : .warn,
+            detail: app.appInfo.spoofSDKVersion ? "已启用" : "未启用"
+        ))
+
+        return checks
+    }
+
+    private var stabilityScore: Int {
+        guard !history.isEmpty else { return 0 }
+        let total = history.reduce(0.0) { partial, item in
+            switch item[AnyHashable("status")] as? String {
+            case "Works": return partial + 1
+            case "Partial": return partial + 0.5
+            case "Broken": return partial
+            default: return partial
+            }
+        }
+        return Int(total / Double(history.count) * 100)
+    }
+
+    private var retryKey: String {
+        "TinkerRetryIndex.\((app.appInfo.relativeBundlePath as String?) ?? app.appInfo.bundleIdentifier() ?? "")"
+    }
+
+    private var retryIndex: Int {
+        get { UserDefaults.standard.integer(forKey: retryKey) }
+        set { UserDefaults.standard.set(newValue, forKey: retryKey) }
     }
 
     private var suggestions: [TinkerSuggestion] {
@@ -213,10 +426,28 @@ private struct TinkerDiagnosisDetailView: View {
             Section("最新状态") {
                 TinkerInfoRow(label: "状态", value: app.appInfo.tinkerStatus ?? "Untested")
                 TinkerInfoRow(label: "分类", value: issueCategory.rawValue)
+                TinkerInfoRow(label: "稳定性", value: "\(stabilityScore)/100")
                 if !latestError.isEmpty {
                     Text(latestError)
                         .font(.caption)
                         .foregroundStyle(.red)
+                }
+            }
+
+            Section("启动前体检") {
+                ForEach(healthChecks) { check in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(check.name)
+                            Spacer()
+                            Text(check.status.rawValue)
+                                .font(.caption.bold())
+                                .foregroundStyle(healthColor(check.status))
+                        }
+                        Text(check.detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -246,6 +477,19 @@ private struct TinkerDiagnosisDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+            }
+
+            Section("自动修复重试") {
+                let configs = Self.retryConfigs
+                let index = retryIndex % configs.count
+                Text("下一套配置：\(configs[index].name)")
+                    .font(.headline)
+                Text("每次点击会应用配置并启动，返回后查看是否 Works。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("应用并启动") {
+                    launchRetry()
                 }
             }
 
@@ -306,8 +550,35 @@ private struct TinkerDiagnosisDetailView: View {
         return lines
     }
 
+    private func launchRetry() {
+        let configs = Self.retryConfigs
+        let index = retryIndex % configs.count
+        applyRetry(configs[index])
+        retryIndex = (index + 1) % configs.count
+        Task {
+            try? await app.runApp()
+        }
+    }
+
+    private func applyRetry(_ config: TinkerRetryConfig) {
+        app.appInfo.isJITNeeded = config.jit
+        app.appInfo.classicMode = config.classic
+        app.appInfo.dontInjectTweakLoader = config.tweakOff
+        app.appInfo.dontLoadTweakLoader = config.tweakOff
+        app.appInfo.spoofSDKVersion = config.spoofSDK
+        app.objectWillChange.send()
+    }
+
     private func boolText(_ value: Bool) -> String {
         value ? "On" : "Off"
+    }
+
+    private func healthColor(_ status: TinkerHealthStatus) -> Color {
+        switch status {
+        case .pass: .green
+        case .warn: .orange
+        case .fail: .red
+        }
     }
 
     private static func dateString(_ date: Date) -> String {
