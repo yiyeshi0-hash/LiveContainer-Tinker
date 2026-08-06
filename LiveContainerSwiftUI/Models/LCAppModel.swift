@@ -338,6 +338,9 @@ class LCAppModel: ObservableObject, Hashable {
         if let forceJIT {
             jitNeeded = forceJIT
         }
+        UserDefaults.standard.set(classicMode, forKey: "LCLaunchCandidateClassicMode")
+        UserDefaults.standard.set(jitNeeded, forKey: "LCLaunchCandidateJIT")
+        UserDefaults.standard.set(currentDataFolder ?? "", forKey: "LCLaunchCandidateContainer")
         if jitNeeded || is32bit {
             if multitask, #available(iOS 17.4, *) {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in

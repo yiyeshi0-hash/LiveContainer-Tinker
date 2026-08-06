@@ -50,6 +50,7 @@ typedef NS_ENUM(NSInteger, MultitaskSpecified){
 @property NSString* tinkerStatus;
 @property NSString* tinkerNotes;
 @property NSString* tinkerTags;
+@property NSArray<NSDictionary*>* tinkerHistory;
 #if is32BitSupported
 @property bool is32bit;
 #endif

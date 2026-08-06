@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 extension LCAppModel: Identifiable {
     public var id: String {
@@ -21,6 +22,7 @@ struct TinkerCenterView: View {
     @State private var selectedStatus = "All"
     @State private var editingApp: LCAppModel?
     @State private var refreshToken = UUID()
+    @State private var mode = 0
 
     private var allApps: [LCAppModel] {
         sharedModel.apps + sharedModel.hiddenApps
@@ -45,51 +47,65 @@ struct TinkerCenterView: View {
 
     var body: some View {
         NavigationView {
-            List {
-                Section {
-                    TextField("搜索 App、Bundle ID 或标签", text: $searchText)
+            VStack(spacing: 0) {
+                Picker("Mode", selection: $mode) {
+                    Text("App").tag(0)
+                    Text("IPA").tag(1)
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
 
-                Section {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(statuses, id: \.self) { status in
-                                Button {
-                                    selectedStatus = status
-                                } label: {
-                                    Text(status)
-                                        .font(.subheadline.weight(.medium))
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            selectedStatus == status ? Color.accentColor : Color(.systemGray6),
-                                            in: Capsule()
-                                        )
-                                        .foregroundStyle(selectedStatus == status ? Color.white : Color.primary)
+                if mode == 0 {
+                    List {
+                        Section {
+                            TextField("搜索 App、Bundle ID 或标签", text: $searchText)
+                        }
+
+                        Section {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(statuses, id: \.self) { status in
+                                        Button {
+                                            selectedStatus = status
+                                        } label: {
+                                            Text(status)
+                                                .font(.subheadline.weight(.medium))
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 8)
+                                                .background(
+                                                    selectedStatus == status ? Color.accentColor : Color(.systemGray6),
+                                                    in: Capsule()
+                                                )
+                                                .foregroundStyle(selectedStatus == status ? Color.white : Color.primary)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
-                    }
-                }
 
-                Section {
-                    Text("\(filteredApps.count) 个 App")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                        Section {
+                            Text("\(filteredApps.count) 个 App")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
 
-                ForEach(filteredApps.indices, id: \.self) { index in
-                    let app = filteredApps[index]
-                    Button {
-                        editingApp = app
-                    } label: {
-                        TinkerAppRow(app: app, statusColor: statusColors[app.appInfo.tinkerStatus ?? "Untested"] ?? .secondary)
+                        ForEach(filteredApps.indices, id: \.self) { index in
+                            let app = filteredApps[index]
+                            Button {
+                                editingApp = app
+                            } label: {
+                                TinkerAppRow(app: app, statusColor: statusColors[app.appInfo.tinkerStatus ?? "Untested"] ?? .secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .id(refreshToken)
+                } else {
+                    TinkerIPAScanView()
                 }
             }
-            .id(refreshToken)
             .navigationTitle("折腾中心")
             .sheet(item: $editingApp) { app in
                 TinkerAppEditor(app: app) {
@@ -192,6 +208,40 @@ private struct TinkerAppEditor: View {
                         .frame(minHeight: 120)
                 }
 
+                Section("启动历史") {
+                    let history = (app.appInfo.tinkerHistory as? [[String: Any]]) ?? []
+                    if history.isEmpty {
+                        Text("暂无记录")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(history.indices, id: \.self) { index in
+                        let item = history[index]
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item["status"] as? String ?? "Unknown")
+                                .font(.headline)
+                            if let date = item["date"] as? Date {
+                                Text(Self.dateString(date))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text("JIT: \((item["jit"] as? Bool ?? false) ? "Yes" : "No") · Classic: \(item["classicMode"] as? Int ?? 0)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if let container = item["container"] as? String, !container.isEmpty {
+                                Text("Container: \(container)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let error = item["error"] as? String, !error.isEmpty {
+                                Text(error)
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                                    .lineLimit(3)
+                            }
+                        }
+                    }
+                }
+
                 Section {
                     Button("启动 App") {
                         Task {
@@ -217,6 +267,196 @@ private struct TinkerAppEditor: View {
                     }
                 }
             }
+        }
+    }
+
+    private static func dateString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter.string(from: date)
+    }
+}
+
+private struct TinkerIPAScanResult: Identifiable {
+    let id = UUID()
+    let displayName: String
+    let bundleID: String
+    let version: String
+    let minimumOS: String
+    let executable: String
+    let architecture: String
+    let frameworks: [String]
+    let fileCount: Int
+    let totalSize: Int64
+}
+
+private enum TinkerIPAScanner {
+    static func scan(url: URL) throws -> TinkerIPAScanResult {
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
+
+        let result = extract(url.path, temp.path, Progress.discreteProgress())
+        guard result == 0 else {
+            throw NSError(domain: "TinkerIPAScanner", code: 1, userInfo: [NSLocalizedDescriptionKey: "IPA 解压失败"])
+        }
+
+        let files = try FileManager.default.subpathsOfDirectory(atPath: temp.path)
+        let appRoot = files.first { $0.hasSuffix(".app") || $0.contains(".app/") }?
+            .components(separatedBy: "/").first
+        guard let appRoot, appRoot.hasSuffix(".app") else {
+            throw NSError(domain: "TinkerIPAScanner", code: 2, userInfo: [NSLocalizedDescriptionKey: "IPA 里没有找到 .app"])
+        }
+
+        let appDir = temp.appendingPathComponent(appRoot)
+        let infoURL = appDir.appendingPathComponent("Info.plist")
+        guard let data = try? Data(contentsOf: infoURL),
+              let plist = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] else {
+            throw NSError(domain: "TinkerIPAScanner", code: 3, userInfo: [NSLocalizedDescriptionKey: "Info.plist 解析失败"])
+        }
+
+        let executable = plist["CFBundleExecutable"] as? String ?? ""
+        let architecture = executableArchitecture(appDir.appendingPathComponent(executable))
+        let frameworks = listFrameworks(appDir)
+        let totalSize = files.reduce(Int64(0)) { total, path in
+            let full = temp.appendingPathComponent(path)
+            let size = (try? FileManager.default.attributesOfItem(atPath: full.path)[.size] as? Int64) ?? 0
+            return total + size
+        }
+
+        return TinkerIPAScanResult(
+            displayName: plist["CFBundleDisplayName"] as? String ?? plist["CFBundleName"] as? String ?? "Unknown",
+            bundleID: plist["CFBundleIdentifier"] as? String ?? "Unknown",
+            version: plist["CFBundleShortVersionString"] as? String ?? "Unknown",
+            minimumOS: plist["MinimumOSVersion"] as? String ?? "Unknown",
+            executable: executable,
+            architecture: architecture,
+            frameworks: frameworks,
+            fileCount: files.count,
+            totalSize: totalSize
+        )
+    }
+
+    private static func executableArchitecture(_ url: URL) -> String {
+        guard let data = try? Data(contentsOf: url) else { return "Unknown" }
+        let bytes = [UInt8](data.prefix(4))
+        guard bytes.count == 4 else { return "Unknown" }
+        let magic = UInt32(bytes[0]) | UInt32(bytes[1]) << 8 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 24
+        switch magic {
+        case 0xfeedfacf: return "arm64"
+        case 0xfeedface: return "32-bit Mach-O"
+        case 0xcafebabe, 0xbebafeca: return "Universal"
+        default: return "Unknown"
+        }
+    }
+
+    private static func listFrameworks(_ appDir: URL) -> [String] {
+        let frameworksURL = appDir.appendingPathComponent("Frameworks")
+        guard let entries = try? FileManager.default.contentsOfDirectory(at: frameworksURL, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        return entries
+            .map { $0.lastPathComponent }
+            .filter { $0.hasSuffix(".framework") || $0.hasSuffix(".dylib") }
+            .sorted()
+    }
+}
+
+private struct TinkerIPAScanView: View {
+    @State private var showImporter = false
+    @State private var result: TinkerIPAScanResult?
+    @State private var isScanning = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("选择 IPA 文件", systemImage: "doc.badge.plus")
+                }
+
+                if isScanning {
+                    ProgressView("正在解析 IPA")
+                }
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            if let result {
+                Section("应用信息") {
+                    TinkerInfoRow(label: "名称", value: result.displayName)
+                    TinkerInfoRow(label: "Bundle ID", value: result.bundleID)
+                    TinkerInfoRow(label: "版本", value: result.version)
+                    TinkerInfoRow(label: "最低系统", value: result.minimumOS)
+                    TinkerInfoRow(label: "可执行文件", value: result.executable)
+                    TinkerInfoRow(label: "架构", value: result.architecture)
+                }
+
+                Section("包结构") {
+                    TinkerInfoRow(label: "文件数", value: "\(result.fileCount)")
+                    TinkerInfoRow(label: "解压大小", value: String(format: "%.2f MB", Double(result.totalSize) / 1_000_000))
+                    ForEach(result.frameworks, id: \.self) { framework in
+                        Text(framework)
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: [.ipa, .tipa]
+        ) { result in
+            handleImport(result)
+        }
+    }
+
+    private func handleImport(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            scan(url)
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func scan(_ url: URL) {
+        isScanning = true
+        errorMessage = nil
+        self.result = nil
+        let accessing = url.startAccessingSecurityScopedResource()
+
+        Task {
+            do {
+                let scanResult = try await Task.detached(priority: .userInitiated) {
+                    try TinkerIPAScanner.scan(url: url)
+                }.value
+                result = scanResult
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+            isScanning = false
+        }
+    }
+}
+
+private struct TinkerInfoRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .multilineTextAlignment(.trailing)
         }
     }
 }

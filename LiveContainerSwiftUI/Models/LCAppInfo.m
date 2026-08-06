@@ -812,4 +812,13 @@
     [self save];
 }
 
+- (NSArray<NSDictionary*>*)tinkerHistory {
+    return _info[@"tinkerHistory"];
+}
+
+- (void)setTinkerHistory:(NSArray<NSDictionary*> *)tinkerHistory {
+    _info[@"tinkerHistory"] = tinkerHistory;
+    [self save];
+}
+
 @end

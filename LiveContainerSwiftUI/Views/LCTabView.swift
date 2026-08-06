@@ -249,11 +249,35 @@ struct LCTabView: View {
             let trimmed = String(error.prefix(500))
             app.appInfo.tinkerNotes = prefix + "Auto: \(trimmed)"
         }
+
+        let classicMode = UserDefaults.standard.integer(forKey: "LCLaunchCandidateClassicMode")
+        let jit = UserDefaults.standard.bool(forKey: "LCLaunchCandidateJIT")
+        let container = UserDefaults.standard.string(forKey: "LCLaunchCandidateContainer") ?? ""
+        var history: [[String: Any]] = []
+        if let old = app.appInfo.tinkerHistory as? [[String: Any]] {
+            history = old
+        }
+        history.append([
+            "date": Date(),
+            "status": status,
+            "classicMode": classicMode,
+            "jit": jit,
+            "container": container,
+            "error": error ?? "",
+        ])
+        if history.count > 20 {
+            history.removeFirst(history.count - 20)
+        }
+        app.appInfo.tinkerHistory = history as NSArray
+
         app.objectWillChange.send()
 
         UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateBundlePath")
         UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateDate")
         UserDefaults.standard.removeObject(forKey: "LCLaunchCrashDate")
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateClassicMode")
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateJIT")
+        UserDefaults.standard.removeObject(forKey: "LCLaunchCandidateContainer")
     }
 
     func crashMarkerDate() -> Date? {
