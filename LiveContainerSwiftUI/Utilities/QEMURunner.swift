@@ -85,8 +85,14 @@ enum QEMURunner {
 
             var argv = args.map { strdup($0) }
             argv.append(nil)
+            var envp = ProcessInfo.processInfo.environment.map { key, value in
+                strdup("\(key)=\(value)")
+            }
+            envp.append(nil)
             let initResult = argv.withUnsafeMutableBufferPointer { buffer in
-                qemuInit(Int32(args.count), buffer.baseAddress, _NSGetEnviron()?.pointee)
+                envp.withUnsafeMutableBufferPointer { envBuffer in
+                    qemuInit(Int32(args.count), buffer.baseAddress, envBuffer.baseAddress)
+                }
             }
             if initResult == 0 {
                 qemuMainLoop()
@@ -95,6 +101,7 @@ enum QEMURunner {
             }
             qemuCleanup()
             argv.forEach { free($0) }
+            envp.forEach { free($0) }
             if let qemuHandle {
                 dlclose(qemuHandle)
                 self.qemuHandle = nil
