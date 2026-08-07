@@ -199,6 +199,13 @@ struct LCVMView: View {
                             }
                             .buttonStyle(.bordered)
 
+                            NavigationLink {
+                                VNCView()
+                            } label: {
+                                Text("VNC")
+                            }
+                            .buttonStyle(.bordered)
+
                             Button("日志") {
                                 loadLogs(vm)
                             }
