@@ -55,7 +55,7 @@ enum QEMURunner {
             args.append(contentsOf: ["-boot", "d"])
         }
 
-        if let error = LCLaunchQEMU(runtimePath, args as NSArray) {
+        if let error = LCLaunchQEMU(runtimePath, args) {
             lastError = error
             return false
         }
