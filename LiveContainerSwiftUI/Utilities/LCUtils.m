@@ -3,6 +3,8 @@
 @import UIKit;
 @import UniformTypeIdentifiers;
 @import Security;
+#import <pthread.h>
+#import <dlfcn.h>
 
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
@@ -10,6 +12,113 @@
 #import "../../MultitaskSupport/DecoratedAppSceneViewController.h"
 #import "../../ZSign/zsigner.h"
 #import "LiveContainerSwiftUI-Swift.h"
+
+typedef struct {
+    int (*qemu_init)(int, const char **, const char **);
+    void (*qemu_main_loop)(void);
+    void (*qemu_cleanup)(void);
+} LCQEMUFunctions;
+
+static pthread_t gQEMUThread;
+static BOOL gQEMUThreadStarted = NO;
+static LCQEMUFunctions gQEMUFunctions;
+
+static void LCQEMUExitHandler(void) {
+    if (gQEMUThreadStarted && pthread_equal(pthread_self(), gQEMUThread)) {
+        gQEMUThreadStarted = NO;
+        pthread_exit(NULL);
+    }
+}
+
+static void *LCQEMUThreadMain(void *arg) {
+    @autoreleasepool {
+        NSDictionary *context = (__bridge_transfer NSDictionary *)arg;
+        NSArray<NSString *> *arguments = context[@"argv"];
+        NSDictionary<NSString *, NSString *> *environment = context[@"env"];
+
+        setenv("TMPDIR", NSTemporaryDirectory().UTF8String, 1);
+        chdir(NSTemporaryDirectory().UTF8String);
+
+        NSUInteger argc = arguments.count;
+        const char *argv[argc + 1];
+        for (NSUInteger i = 0; i < argc; i++) {
+            argv[i] = arguments[i].UTF8String;
+        }
+        argv[argc] = NULL;
+
+        NSMutableDictionary<NSString *, NSString *> *mutableEnvironment = [environment mutableCopy];
+        mutableEnvironment[@"TMPDIR"] = NSTemporaryDirectory();
+        NSMutableArray<NSString *> *environmentStrings = [NSMutableArray array];
+        [mutableEnvironment enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString *value, BOOL *stop) {
+            [environmentStrings addObject:[NSString stringWithFormat:@"%@=%@", key, value]];
+        }];
+        NSUInteger envc = environmentStrings.count;
+        const char *envp[envc + 1];
+        for (NSUInteger i = 0; i < envc; i++) {
+            envp[i] = environmentStrings[i].UTF8String;
+        }
+        envp[envc] = NULL;
+
+        int result = gQEMUFunctions.qemu_init((int)argc, argv, envp);
+        if (result == 0) {
+            gQEMUFunctions.qemu_main_loop();
+        }
+        gQEMUFunctions.qemu_cleanup();
+    }
+    gQEMUThreadStarted = NO;
+    return NULL;
+}
+
+NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments) {
+    if (gQEMUThreadStarted) {
+        return @"QEMU already running";
+    }
+    if (dylibPath.length == 0 || arguments.count == 0) {
+        return @"Invalid QEMU launch arguments";
+    }
+
+    void *handle = dlopen(dylibPath.UTF8String, RTLD_LOCAL | RTLD_LAZY);
+    if (!handle) {
+        const char *error = dlerror();
+        return error ? [NSString stringWithUTF8String:error] : @"Failed to load QEMU";
+    }
+
+    gQEMUFunctions.qemu_init = dlsym(handle, "qemu_init");
+    gQEMUFunctions.qemu_main_loop = dlsym(handle, "qemu_main_loop");
+    gQEMUFunctions.qemu_cleanup = dlsym(handle, "qemu_cleanup");
+    if (!gQEMUFunctions.qemu_init || !gQEMUFunctions.qemu_main_loop || !gQEMUFunctions.qemu_cleanup) {
+        const char *error = dlerror();
+        NSString *message = error ? [NSString stringWithUTF8String:error] : @"Missing QEMU entry symbols";
+        dlclose(handle);
+        return message;
+    }
+
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        atexit(LCQEMUExitHandler);
+    });
+
+    gQEMUThreadStarted = YES;
+    NSDictionary *context = @{
+        @"argv": arguments,
+        @"env": [[NSProcessInfo processInfo] environment]
+    };
+    pthread_attr_t attribute;
+    pthread_attr_init(&attribute);
+    pthread_attr_set_qos_class_np(&attribute, QOS_CLASS_USER_INTERACTIVE, 0);
+    int result = pthread_create(&gQEMUThread, &attribute, LCQEMUThreadMain, (__bridge_retained void *)context);
+    pthread_attr_destroy(&attribute);
+    if (result != 0) {
+        gQEMUThreadStarted = NO;
+        dlclose(handle);
+        return [NSString stringWithFormat:@"pthread_create failed: %d", result];
+    }
+    return nil;
+}
+
+BOOL LCQEMUIsRunning(void) {
+    return gQEMUThreadStarted;
+}
 
 // make SFSafariView happy and open data: URLs
 @implementation NSURL(hack)
