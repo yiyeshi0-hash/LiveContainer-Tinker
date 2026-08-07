@@ -135,7 +135,10 @@ struct LCVMView: View {
     var body: some View {
         List {
             Section("运行时") {
-                Label("QEMU 运行时：待集成", systemImage: "cpu")
+                Label(
+                    QEMURunner.isAvailable() ? "QEMU 运行时：已集成" : "QEMU 运行时：未找到",
+                    systemImage: "cpu"
+                )
                 Label("JIT 链路：复用折腾中心", systemImage: "bolt.fill")
             }
 
@@ -324,7 +327,16 @@ struct LCVMView: View {
     }
 
     private func start(_ vm: LCVMModel) {
-        alertMessage = "QEMU 运行时尚未集成，当前版本先做 VM 管理。"
+        guard QEMURunner.isAvailable() else {
+            alertMessage = "QEMU 运行时未找到"
+            return
+        }
+        let diskURL = LCVMStore.diskURL(for: vm)
+        if QEMURunner.launch(diskPath: diskURL.path) {
+            alertMessage = "QEMU 已启动，VNC 127.0.0.1:5900"
+        } else {
+            errorMessage = "QEMU 启动失败"
+        }
     }
 
     private func loadLogs(_ vm: LCVMModel) {

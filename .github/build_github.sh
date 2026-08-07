@@ -10,6 +10,15 @@ mv "$archive_path.xcarchive/Products/Applications" Payload
 mkdir tmp
 mv Payload/LiveContainer.app/Frameworks/SideStoreSupport.framework ./tmp
 
+# QEMU runtime
+cd tmp
+wget -q https://github.com/utmapp/UTM/releases/download/v5.0.4/UTM.ipa
+unzip -q UTM.ipa "Payload/UTM.app/Frameworks/qemu-x86_64-softmmu.framework/*"
+cd ..
+mkdir -p Payload/LiveContainer.app/Frameworks
+cp -R tmp/Payload/UTM.app/Frameworks/qemu-x86_64-softmmu.framework Payload/LiveContainer.app/Frameworks/
+ldid -S"" Payload/LiveContainer.app/Frameworks/qemu-x86_64-softmmu.framework/qemu-x86_64-softmmu
+
 zip -r "$scheme.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
 
 mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
