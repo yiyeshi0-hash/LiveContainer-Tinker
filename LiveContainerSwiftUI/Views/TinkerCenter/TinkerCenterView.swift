@@ -61,6 +61,14 @@ struct TinkerCenterView: View {
                 if mode == 0 {
                     List {
                         Section {
+                            NavigationLink {
+                                LCVMView()
+                            } label: {
+                                Label("虚拟机中心", systemImage: "desktopcomputer")
+                            }
+                        }
+
+                        Section {
                             TextField("搜索 App、Bundle ID 或标签", text: $searchText)
                         }
 
