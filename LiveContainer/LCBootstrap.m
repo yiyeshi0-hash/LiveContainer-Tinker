@@ -778,10 +778,18 @@ static void installTinkerCrashHandlers(void) {
     button.backgroundColor = [UIColor.systemBlueColor colorWithAlphaComponent:0.9];
     button.layer.cornerRadius = 18;
     button.titleLabel.font = [UIFont boldSystemFontOfSize:13];
-    button.frame = CGRectMake(UIScreen.mainScreen.bounds.size.width - 76, 64, 60, 36);
-    button.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin;
+    button.frame = CGRectMake(5, 0, 60, 36);
     [button addTarget:self action:@selector(openLog) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:button];
+
+    UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(pan:)];
+    [self.view addGestureRecognizer:pan];
+}
+
+- (void)pan:(UIPanGestureRecognizer *)gesture {
+    CGPoint t = [gesture translationInView:self.view];
+    self.view.window.center = CGPointMake(self.view.window.center.x + t.x, self.view.window.center.y + t.y);
+    [gesture setTranslation:CGPointZero inView:self.view];
 }
 
 - (void)openLog {
@@ -811,8 +819,8 @@ void TinkerSetupLiveLogOverlay(void) {
         if (!scene) return;
 
         gLogWindow = [[UIWindow alloc] initWithWindowScene:scene];
-        gLogWindow.windowLevel = UIWindowLevelStatusBar + 100;
-        gLogWindow.frame = UIScreen.mainScreen.bounds;
+        gLogWindow.windowLevel = UIWindowLevelNormal + 1;
+        gLogWindow.frame = CGRectMake(UIScreen.mainScreen.bounds.size.width - 70, 64, 70, 36);
         gLogWindow.backgroundColor = UIColor.clearColor;
         gLogWindow.rootViewController = [[TinkerLogOverlayRootVC alloc] init];
         gLogWindow.hidden = NO;
