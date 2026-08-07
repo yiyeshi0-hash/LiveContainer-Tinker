@@ -72,6 +72,12 @@ struct TinkerCenterView: View {
                             } label: {
                                 Label("实时日志", systemImage: "terminal")
                             }
+
+                            NavigationLink {
+                                LCServerConsoleView()
+                            } label: {
+                                Label("服务器", systemImage: "server.rack")
+                            }
                         }
 
                         Section {
