@@ -3,6 +3,7 @@
 #import "LCSharedUtils.h"
 #import "UIKitPrivate.h"
 #import "utils.h"
+#import "TinkerLogOverlay.h"
 
 #include <mach/mach.h>
 #include <mach-o/dyld.h>
@@ -842,6 +843,7 @@ int LiveContainerMain(int argc, char *argv[]) {
     NSSetUncaughtExceptionHandler(&exceptionHandler);
     installTinkerCrashHandlers();
     if (selectedApp || isSideStore) {
+        TinkerSetupLiveLogOverlay();
         [lcUserDefaults removeObjectForKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];
         if(launchUrl) {
