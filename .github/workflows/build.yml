@@ -12,7 +12,7 @@ on:
       release_version:
         description: Version label for versioned IPA artifacts
         type: string
-        default: v1.5
+        default: v1.6
 
 jobs:
   build:

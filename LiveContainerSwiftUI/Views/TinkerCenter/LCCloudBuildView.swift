@@ -142,7 +142,6 @@ struct LCCloudBuildView: View {
     @State private var owner = "yiyeshi0-hash"
     @State private var repo = "LiveContainer-Tinker"
     @State private var refName = "main"
-    @State private var inputsJSON = ""
 
     @State private var workflows: [GHWorkflow] = []
     @State private var selectedWorkflowID: Int?
@@ -203,8 +202,6 @@ struct LCCloudBuildView: View {
                             Text(workflow.name).tag(workflow.id as Int?)
                         }
                     }
-
-                    TextField("JSON 输入（可选）", text: $inputsJSON)
 
                     Button {
                         Task { await triggerBuild() }
@@ -360,10 +357,8 @@ struct LCCloudBuildView: View {
         }
 
         do {
-            let inputs = try parseInputs()
             let payload: [String: Any] = [
                 "ref": refName.trimmingCharacters(in: .whitespacesAndNewlines),
-                "inputs": inputs,
             ]
             let body = try JSONSerialization.data(withJSONObject: payload)
             _ = try await apiRequest(
@@ -376,16 +371,6 @@ struct LCCloudBuildView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
-    }
-
-    private func parseInputs() throws -> [String: Any] {
-        let trimmed = inputsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [:] }
-        guard let data = trimmed.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw "JSON 输入格式错误"
-        }
-        return object
     }
 
     private func toggleRun(_ run: GHRun) async {
