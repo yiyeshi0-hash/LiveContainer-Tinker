@@ -39,8 +39,11 @@ enum QEMURunner {
                 "-nodefaults",
                 "-display", "none",
                 "-vnc", "127.0.0.1:5900",
-                "-drive", "file=\(diskPath),format=qcow2,if=ide",
             ]
+            if FileManager.default.fileExists(atPath: diskPath) {
+                let format = diskPath.lowercased().hasSuffix(".qcow2") ? "qcow2" : "raw"
+                args.append(contentsOf: ["-drive", "file=\(diskPath),format=\(format),if=ide"])
+            }
             if let isoPath {
                 args.append(contentsOf: ["-cdrom", isoPath])
                 args.append(contentsOf: ["-boot", "d"])

@@ -120,19 +120,36 @@ private enum LCVMStore {
         let destination = folder.appendingPathComponent(fileName)
         try FileManager.default.copyItem(at: sourceURL, to: destination)
 
+        let isISO = fileName.lowercased().hasSuffix(".iso")
         let model = LCVMModel(
             folderName: folderName,
             name: sourceURL.deletingPathExtension().lastPathComponent,
-            system: Self.systemName(for: fileName),
-            diskFileName: fileName,
+            system: isISO ? "ISO 安装镜像" : Self.systemName(for: fileName),
+            diskFileName: isISO ? "disk.raw" : fileName,
             diskAbsolutePath: nil,
-            isoAbsolutePath: nil,
+            isoAbsolutePath: isISO ? destination.path : nil,
             createdAt: Date(),
             status: "Untested",
             notes: ""
         )
+        if isISO {
+            try ensureDisk(for: model)
+        }
         try save(model)
         return model
+    }
+
+    static func ensureDisk(for model: LCVMModel) throws -> URL {
+        let diskURL = diskURL(for: model)
+        let fm = FileManager.default
+        guard !fm.fileExists(atPath: diskURL.path) else { return diskURL }
+        fm.createFile(atPath: diskURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: diskURL)
+        let oneGB = UInt64(1024 * 1024 * 1024)
+        try handle.seek(toOffset: 16 * oneGB - 1)
+        try handle.write(Data([0]))
+        try handle.close()
+        return diskURL
     }
 
     static func systemName(for fileName: String) -> String {
@@ -383,7 +400,10 @@ struct LCVMView: View {
             alertMessage = "QEMU 运行时未找到"
             return
         }
-        let diskURL = LCVMStore.diskURL(for: vm)
+        guard let diskURL = try? LCVMStore.ensureDisk(for: vm) else {
+            errorMessage = "无法准备磁盘"
+            return
+        }
         if QEMURunner.launch(diskPath: diskURL.path, isoPath: vm.isoAbsolutePath) {
             alertMessage = "QEMU 已启动，VNC 127.0.0.1:5900"
         } else {
