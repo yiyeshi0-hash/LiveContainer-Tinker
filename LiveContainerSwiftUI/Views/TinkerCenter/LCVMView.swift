@@ -31,7 +31,7 @@ private enum LCVMStore {
         if let diskAbsolutePath = model.diskAbsolutePath {
             return URL(fileURLWithPath: diskAbsolutePath)
         }
-        folderURL(for: model).appendingPathComponent(model.diskFileName)
+        return folderURL(for: model).appendingPathComponent(model.diskFileName)
     }
 
     static func load() -> [LCVMModel] {
@@ -42,7 +42,7 @@ private enum LCVMStore {
             includingPropertiesForKeys: nil
         )) ?? []
 
-        let models = entries.compactMap { folder in
+        let models: [LCVMModel] = entries.compactMap { folder in
             guard folder.hasDirectoryPath else { return nil }
             let configURL = folder.appendingPathComponent("config.json")
             if let data = try? Data(contentsOf: configURL),
