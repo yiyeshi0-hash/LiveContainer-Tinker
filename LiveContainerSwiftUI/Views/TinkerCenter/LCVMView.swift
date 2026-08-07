@@ -407,7 +407,7 @@ struct LCVMView: View {
         if QEMURunner.launch(diskPath: diskURL.path, isoPath: vm.isoAbsolutePath) {
             alertMessage = "QEMU 已启动，VNC 127.0.0.1:5900"
         } else {
-            errorMessage = "QEMU 启动失败"
+            errorMessage = QEMURunner.lastErrorMessage.isEmpty ? "QEMU 启动失败" : QEMURunner.lastErrorMessage
         }
     }
 

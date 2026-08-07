@@ -13,11 +13,17 @@ mv Payload/LiveContainer.app/Frameworks/SideStoreSupport.framework ./tmp
 # QEMU runtime
 cd tmp
 wget -q https://github.com/utmapp/UTM/releases/download/v5.0.4/UTM.ipa
-unzip -q UTM.ipa "Payload/UTM.app/Frameworks/qemu-x86_64-softmmu.framework/*"
+unzip -q UTM.ipa "Payload/UTM.app/Frameworks/*"
+unzip -q UTM.ipa "Payload/UTM.app/qemu/*"
 cd ..
 mkdir -p Payload/LiveContainer.app/Frameworks
-cp -R tmp/Payload/UTM.app/Frameworks/qemu-x86_64-softmmu.framework Payload/LiveContainer.app/Frameworks/
-ldid -S"" Payload/LiveContainer.app/Frameworks/qemu-x86_64-softmmu.framework/qemu-x86_64-softmmu
+cp -R tmp/Payload/UTM.app/Frameworks/. Payload/LiveContainer.app/Frameworks/
+cp -R tmp/Payload/UTM.app/qemu Payload/LiveContainer.app/qemu
+for f in Payload/LiveContainer.app/Frameworks/*/*; do
+    if file "$f" | grep -q "Mach-O"; then
+        ldid -S"" "$f"
+    fi
+done
 
 zip -r "$scheme.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
 
