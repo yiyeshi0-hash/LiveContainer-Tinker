@@ -5,6 +5,7 @@
 //  Created by s s on 2025/5/16.
 //
 import SwiftUI
+import Darwin
 
 @main
 struct LiveContainerSwiftUIApp : SwiftUI.App {
@@ -12,6 +13,15 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
     
     init() {
         let fm = FileManager()
+        let logURL = LCPath.docPath.appendingPathComponent("Logs/live.log", isDirectory: false)
+        try? fm.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let fd = Darwin.open(logURL.path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
+        if fd >= 0 {
+            Darwin.dup2(fd, STDERR_FILENO)
+            Darwin.dup2(fd, STDOUT_FILENO)
+            Darwin.close(fd)
+        }
+
         var tempAppDataFolderNames : [String] = []
         var tempTweakFolderNames : [String] = []
         
