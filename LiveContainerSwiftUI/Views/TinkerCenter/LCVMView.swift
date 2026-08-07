@@ -7,6 +7,8 @@ struct LCVMModel: Identifiable, Codable, Hashable {
     var name: String
     var system: String
     var diskFileName: String
+    var diskAbsolutePath: String?
+    var isoAbsolutePath: String?
     var createdAt: Date
     var status: String
     var notes: String
@@ -26,20 +28,21 @@ private enum LCVMStore {
     }
 
     static func diskURL(for model: LCVMModel) -> URL {
+        if let diskAbsolutePath = model.diskAbsolutePath {
+            return URL(fileURLWithPath: diskAbsolutePath)
+        }
         folderURL(for: model).appendingPathComponent(model.diskFileName)
     }
 
     static func load() -> [LCVMModel] {
         ensureRoot()
         let fm = FileManager.default
-        guard let entries = try? fm.contentsOfDirectory(
+        let entries = (try? fm.contentsOfDirectory(
             at: rootURL,
             includingPropertiesForKeys: nil
-        ) else {
-            return []
-        }
+        )) ?? []
 
-        return entries.compactMap { folder in
+        let models = entries.compactMap { folder in
             guard folder.hasDirectoryPath else { return nil }
             let configURL = folder.appendingPathComponent("config.json")
             if let data = try? Data(contentsOf: configURL),
@@ -53,12 +56,50 @@ private enum LCVMStore {
                 name: fallbackName,
                 system: "Unknown",
                 diskFileName: "disk.qcow2",
+                diskAbsolutePath: nil,
+                isoAbsolutePath: nil,
                 createdAt: Date(),
                 status: "Untested",
                 notes: ""
             )
         }
-        .sorted { $0.createdAt > $1.createdAt }
+        return Self.appendingUTMVMs(fm: fm, to: models)
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private static func appendingUTMVMs(fm: FileManager, to models: [LCVMModel]) -> [LCVMModel] {
+        guard let enumerator = fm.enumerator(
+            at: LCPath.dataPath,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return models
+        }
+
+        var result = models
+        var seen = Set(result.compactMap { $0.diskAbsolutePath })
+        for case let url as URL in enumerator {
+            guard url.pathExtension.lowercased() == "utm", url.hasDirectoryPath else { continue }
+            let dataDir = url.appendingPathComponent("Data")
+            guard let files = try? fm.contentsOfDirectory(atPath: dataDir.path) else { continue }
+            guard let qcow = files.first(where: { $0.lowercased().hasSuffix(".qcow2") }) else { continue }
+            let qcowPath = dataDir.appendingPathComponent(qcow).path
+            guard !seen.contains(qcowPath) else { continue }
+            seen.insert(qcowPath)
+            let iso = files.first(where: { $0.lowercased().hasSuffix(".iso") })
+            result.append(LCVMModel(
+                folderName: "utm-\(UUID().uuidString)",
+                name: url.deletingPathExtension().lastPathComponent,
+                system: "UTM VM",
+                diskFileName: qcow,
+                diskAbsolutePath: qcowPath,
+                isoAbsolutePath: iso.map { dataDir.appendingPathComponent($0).path },
+                createdAt: Date(),
+                status: "Untested",
+                notes: ""
+            ))
+        }
+        return result
     }
 
     static func save(_ model: LCVMModel) throws {
@@ -84,6 +125,8 @@ private enum LCVMStore {
             name: sourceURL.deletingPathExtension().lastPathComponent,
             system: Self.systemName(for: fileName),
             diskFileName: fileName,
+            diskAbsolutePath: nil,
+            isoAbsolutePath: nil,
             createdAt: Date(),
             status: "Untested",
             notes: ""
@@ -322,6 +365,8 @@ struct LCVMView: View {
                 name: url.deletingPathExtension().lastPathComponent,
                 system: LCVMStore.systemName(for: fileName),
                 diskFileName: fileName,
+                diskAbsolutePath: nil,
+                isoAbsolutePath: nil,
                 createdAt: Date(),
                 status: "Untested",
                 notes: ""
@@ -339,7 +384,7 @@ struct LCVMView: View {
             return
         }
         let diskURL = LCVMStore.diskURL(for: vm)
-        if QEMURunner.launch(diskPath: diskURL.path) {
+        if QEMURunner.launch(diskPath: diskURL.path, isoPath: vm.isoAbsolutePath) {
             alertMessage = "QEMU 已启动，VNC 127.0.0.1:5900"
         } else {
             errorMessage = "QEMU 启动失败"
