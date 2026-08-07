@@ -77,6 +77,24 @@ final class VNCClient: ObservableObject {
         send(data)
     }
 
+    func tapKey(_ key: UInt32) {
+        sendKey(key, down: true)
+        sendKey(key, down: false)
+    }
+
+    func click(buttonMask: UInt8, x: Int, y: Int) {
+        sendPointer(x: x, y: y, buttonMask: buttonMask)
+        sendPointer(x: x, y: y, buttonMask: 0)
+    }
+
+    func scroll(up: Bool, times: Int = 1, x: Int, y: Int) {
+        let mask: UInt8 = up ? 8 : 16
+        for _ in 0..<max(1, times) {
+            sendPointer(x: x, y: y, buttonMask: mask)
+            sendPointer(x: x, y: y, buttonMask: 0)
+        }
+    }
+
     private func send(_ data: Data) {
         connection?.send(content: data, completion: .contentProcessed { _ in })
     }
