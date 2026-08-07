@@ -62,8 +62,8 @@ static void *LCQEMUThreadMain(void *arg) {
         int result = gQEMUFunctions.qemu_init((int)argc, argv, envp);
         if (result == 0) {
             gQEMUFunctions.qemu_main_loop();
+            gQEMUFunctions.qemu_cleanup();
         }
-        gQEMUFunctions.qemu_cleanup();
     }
     gQEMUThreadStarted = NO;
     return NULL;
