@@ -51,6 +51,16 @@ enum QEMURunner {
             .appendingPathComponent("qemu.log")
             .path
         lastLogPath = logPath
+        let launchHeader = """
+        LiveContainer-Tinker \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
+        launch disk=\(diskPath)
+        iso=\(isoPath ?? "-")
+        runtime=\(runtimePath)
+        resource=\(resourcePath)
+        vnc=\(vncSocketPath)
+
+        """
+        try? launchHeader.write(toFile: logPath, atomically: true, encoding: .utf8)
 
         var args = [
             "qemu-system-x86_64",

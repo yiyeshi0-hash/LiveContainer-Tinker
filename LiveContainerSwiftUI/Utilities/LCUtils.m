@@ -40,9 +40,14 @@ static void *LCQEMUThreadMain(void *arg) {
         NSString *logPath = context[@"logPath"];
 
         if (logPath.length > 0) {
-            freopen(logPath.UTF8String, "w", stderr);
+            freopen(logPath.UTF8String, "a", stderr);
             freopen(logPath.UTF8String, "a", stdout);
         }
+        fprintf(stderr, "QEMU thread begin\n");
+        for (NSUInteger i = 0; i < arguments.count; i++) {
+            fprintf(stderr, "argv[%lu] = %s\n", (unsigned long)i, arguments[i].UTF8String);
+        }
+        fflush(stderr);
 
         setenv("TMPDIR", NSTemporaryDirectory().UTF8String, 1);
         chdir(NSTemporaryDirectory().UTF8String);
@@ -68,6 +73,8 @@ static void *LCQEMUThreadMain(void *arg) {
         envp[envc] = NULL;
 
         int result = gQEMUFunctions.qemu_init((int)argc, argv, envp);
+        fprintf(stderr, "qemu_init returned %d\n", result);
+        fflush(stderr);
         if (result == 0) {
             gQEMUFunctions.qemu_main_loop();
             gQEMUFunctions.qemu_cleanup();
@@ -85,6 +92,12 @@ NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments, NSString *logPat
     }
     if (dylibPath.length == 0 || arguments.count == 0) {
         return @"Invalid QEMU launch arguments";
+    }
+    if (logPath.length > 0) {
+        freopen(logPath.UTF8String, "a", stderr);
+        freopen(logPath.UTF8String, "a", stdout);
+        fprintf(stderr, "LCLaunchQEMU begin, dlopen %s\n", dylibPath.UTF8String);
+        fflush(stderr);
     }
 
     void *handle = dlopen(dylibPath.UTF8String, RTLD_LOCAL | RTLD_LAZY);
