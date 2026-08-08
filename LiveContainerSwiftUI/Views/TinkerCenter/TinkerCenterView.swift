@@ -24,6 +24,10 @@ struct TinkerCenterView: View {
     @State private var refreshToken = UUID()
     @State private var mode = 0
 
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
     private var allApps: [LCAppModel] {
         sharedModel.apps + sharedModel.hiddenApps
     }
@@ -48,6 +52,14 @@ struct TinkerCenterView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                HStack {
+                    Text("LiveContainer-Tinker v\(appVersion)")
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+
                 Picker("Mode", selection: $mode) {
                     Text("App").tag(0)
                     Text("IPA").tag(1)

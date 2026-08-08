@@ -26,6 +26,8 @@ static LCQEMUFunctions gQEMUFunctions;
 static void LCQEMUExitHandler(void) {
     if (gQEMUThreadStarted && pthread_equal(pthread_self(), gQEMUThread)) {
         gQEMUThreadStarted = NO;
+        fflush(stderr);
+        fflush(stdout);
         pthread_exit(NULL);
     }
 }
@@ -70,6 +72,8 @@ static void *LCQEMUThreadMain(void *arg) {
             gQEMUFunctions.qemu_main_loop();
             gQEMUFunctions.qemu_cleanup();
         }
+        fflush(stderr);
+        fflush(stdout);
     }
     gQEMUThreadStarted = NO;
     return NULL;

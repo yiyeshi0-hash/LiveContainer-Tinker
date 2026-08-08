@@ -93,7 +93,7 @@ private enum LCVMStore {
                 system: "UTM VM",
                 diskFileName: qcow,
                 diskAbsolutePath: qcowPath,
-                isoAbsolutePath: iso.map { dataDir.appendingPathComponent($0).path },
+                isoAbsolutePath: nil,
                 createdAt: Date(),
                 status: "Untested",
                 notes: ""
