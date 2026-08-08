@@ -57,17 +57,14 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 /usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:Key string LCOpenSideStore" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
 /usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:DefaultValue bool false" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
 
-# download SideStore
+# download SideStore from official LiveContainer+SideStore 3.8.0
 cd tmp
-wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
-unzip SideStore.ipa
+wget -q https://github.com/LiveContainer/LiveContainer/releases/download/3.8.0/LiveContainer+SideStore.ipa
+unzip -q LiveContainer+SideStore.ipa "Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/*"
 cd ..
 
 # SideStore
-mv ./tmp/Payload/SideStore.app ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework
-./dylibify ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore.dylib
-rm ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
-mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore.dylib ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
+mv ./tmp/Payload/LiveContainer.app/Frameworks/SideStoreApp.framework ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework
 ldid -S"" ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
 cp ./.github/sidelc/LCAppInfo.plist ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/
 
