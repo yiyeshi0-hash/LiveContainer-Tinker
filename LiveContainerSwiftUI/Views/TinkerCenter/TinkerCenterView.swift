@@ -91,6 +91,11 @@ struct TinkerCenterView: View {
                                 Text("UTM 未内置")
                                     .foregroundStyle(.secondary)
                             }
+                            NavigationLink {
+                                TOTPView()
+                            } label: {
+                                Label("TOTP 验证器", systemImage: "shield.lefthalf.filled")
+                            }
                         }
 
                         Section {
