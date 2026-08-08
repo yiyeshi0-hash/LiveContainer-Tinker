@@ -70,7 +70,7 @@ enum QEMURunner {
                 "-drive", "file=\(diskPath),format=\(format),if=ide,file.locking=off",
             ])
         }
-        if let isoPath {
+        if let isoPath, FileManager.default.fileExists(atPath: isoPath) {
             args.append(contentsOf: ["-cdrom", isoPath])
             args.append(contentsOf: ["-boot", "d"])
         }
