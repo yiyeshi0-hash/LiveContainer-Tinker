@@ -74,12 +74,6 @@ struct TinkerCenterView: View {
                     List {
                         Section {
                             NavigationLink {
-                                LCVMView()
-                            } label: {
-                                Label("虚拟机中心", systemImage: "desktopcomputer")
-                            }
-
-                            NavigationLink {
                                 LCLiveLogView()
                             } label: {
                                 Label("实时日志", systemImage: "terminal")

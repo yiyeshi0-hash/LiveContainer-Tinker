@@ -10,16 +10,19 @@ mv "$archive_path.xcarchive/Products/Applications" Payload
 mkdir tmp
 mv Payload/LiveContainer.app/Frameworks/SideStoreSupport.framework ./tmp
 
-# QEMU runtime
+# UTM built-in
 cd tmp
 wget -q https://github.com/utmapp/UTM/releases/download/v5.0.4/UTM.ipa
-unzip -q UTM.ipa "Payload/UTM.app/Frameworks/*"
-unzip -q UTM.ipa "Payload/UTM.app/qemu/*"
+unzip -q UTM.ipa "Payload/UTM.app/*"
 cd ..
 mkdir -p Payload/LiveContainer.app/Frameworks
-cp -R tmp/Payload/UTM.app/Frameworks/. Payload/LiveContainer.app/Frameworks/
-cp -R tmp/Payload/UTM.app/qemu Payload/LiveContainer.app/qemu
-for f in Payload/LiveContainer.app/Frameworks/*/*; do
+mv tmp/Payload/UTM.app Payload/LiveContainer.app/Frameworks/UTMApp.framework
+./dylibify Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM.dylib
+rm Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
+mv Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM.dylib Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
+ldid -S"" Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
+cp ./.github/sidelc/UTMLCAppInfo.plist Payload/LiveContainer.app/Frameworks/UTMApp.framework/
+for f in $(find Payload/LiveContainer.app/Frameworks/UTMApp.framework -type f); do
     if file "$f" | grep -q "Mach-O"; then
         ldid -S"" "$f"
     fi

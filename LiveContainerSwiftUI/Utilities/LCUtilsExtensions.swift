@@ -523,4 +523,11 @@ extension LCUtils {
             try await sideStoreApp.runApp(bundleIdOverride: "builtinSideStore", urlStr: urlStr)
         }
     }
+
+    static func openUTM(delegate: LCAppModelDelegate? = nil) {
+        let utmApp = LCAppModel(appInfo: BuiltInUTMAppInfo.shared, delegate: delegate)
+        Task {
+            try await utmApp.runApp(bundleIdOverride: "builtinUTM")
+        }
+    }
 }

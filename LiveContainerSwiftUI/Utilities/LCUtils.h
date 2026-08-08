@@ -50,6 +50,7 @@ BOOL LCQEMUIsRunning(void);
 
 @interface NSUserDefaults(LiveContainer)
 + (bool)sideStoreExist;
++ (bool)utmExist;
 @end
 
 @interface LCP12CertHelper : NSObject

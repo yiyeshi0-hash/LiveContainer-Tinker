@@ -248,6 +248,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             helpPresent = true
                         }
                     }
+                    if(UserDefaults.utmExist()) {
+                        Button {
+                            LCUtils.openUTM(delegate: self)
+                        } label: {
+                            IconImageView(icon: BuiltInUTMAppInfo.shared.iconIsDarkIcon(darkModeIcon))
+                                .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                        }
+                    }
                     
 
                 }
@@ -1040,6 +1048,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         if appFound == nil && bundleId == "builtinSideStore" {
             appFound = LCAppModel(appInfo: BuiltInSideStoreAppInfo.shared)
+        }
+
+        if appFound == nil && bundleId == "builtinUTM" {
+            appFound = LCAppModel(appInfo: BuiltInUTMAppInfo.shared)
         }
         
         if isFoundAppLocked && !sharedModel.isHiddenAppUnlocked {

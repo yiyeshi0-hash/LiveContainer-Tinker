@@ -37,6 +37,8 @@ bool isLiveProcess = false;
 bool isSharedBundle = false;
 bool isSideStore = false;
 bool sideStoreExist = false;
+bool isUTM = false;
+bool utmExist = false;
 
 @implementation NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults {
@@ -76,6 +78,9 @@ bool sideStoreExist = false;
 }
 + (bool)sideStoreExist {
     return sideStoreExist;
+}
++ (bool)utmExist {
+    return utmExist;
 }
 
 + (NSString*)lcGuestAppId {
@@ -261,7 +266,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     if([[lcUserDefaults objectForKey:@"LCWaitForDebugger"] boolValue]) {
         sleep(100);
     }
-    if (!LCSharedUtils.certificatePassword && !isSideStore) {
+    if (!LCSharedUtils.certificatePassword && !isSideStore && !isUTM) {
 #if !TARGET_OS_SIMULATOR
         if(@available(iOS 26.0 ,*))  {
             return @"JITLess mode is required since iOS 26. Please set it up in settings. \nPlease go to LiveContainer settings -> tap \"Import Certificate from SideStore\" / \"Import Certificate\"";
@@ -283,12 +288,14 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     NSURL *appGroupFolder = nil;
     
     NSString *bundlePath = 0;
-    if(!isSideStore) {
+    if(!isSideStore && !isUTM) {
         bundlePath = [NSString stringWithFormat:@"%@/Applications/%@", docPath, selectedApp];
     } else if (isLiveProcess) {
-        bundlePath = [[NSBundle.mainBundle.bundleURL.URLByDeletingLastPathComponent.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"] path];
+        NSString *builtInFramework = isSideStore ? @"SideStoreApp.framework" : @"UTMApp.framework";
+        bundlePath = [[NSBundle.mainBundle.bundleURL.URLByDeletingLastPathComponent.URLByDeletingLastPathComponent URLByAppendingPathComponent:[@"Frameworks/" stringByAppendingString:builtInFramework]] path];
     } else {
-        bundlePath = [[NSBundle.mainBundle.bundleURL URLByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"] path];
+        NSString *builtInFramework = isSideStore ? @"SideStoreApp.framework" : @"UTMApp.framework";
+        bundlePath = [[NSBundle.mainBundle.bundleURL URLByAppendingPathComponent:[@"Frameworks/" stringByAppendingString:builtInFramework]] path];
     }
     
 
@@ -343,7 +350,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         return @"Container not found!";
     }
     
-    if(isLiveProcess && !isSideStore) {
+    if(isLiveProcess && !isSideStore && !isUTM) {
         lcAppUrlScheme = [lcUserDefaults stringForKey:@"hostUrlScheme"];
         [lcUserDefaults removeObjectForKey:@"hostUrlScheme"];
     }
@@ -425,12 +432,12 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         }
     }
     
-    if(isSideStore) {
+    if(isSideStore || isUTM) {
         if(isLiveProcess) {
-            newHomePath = [lcUserDefaults stringForKey:@"specifiedSideStoreContainerPath"];;
-            [lcUserDefaults removeObjectForKey:@"specifiedSideStoreContainerPath"];
+            newHomePath = [lcUserDefaults stringForKey:isSideStore ? @"specifiedSideStoreContainerPath" : @"specifiedUTMContainerPath"];
+            [lcUserDefaults removeObjectForKey:isSideStore ? @"specifiedSideStoreContainerPath" : @"specifiedUTMContainerPath"];
         } else {
-            newHomePath = [docPath stringByAppendingPathComponent:@"SideStore"];
+            newHomePath = [docPath stringByAppendingPathComponent:isSideStore ? @"SideStore" : @"UTM"];
         }
     } else if (bookmarkURL) {
         newHomePath = bookmarkURL.path;
@@ -519,7 +526,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     // hook NSUserDefault before running libraries' initializers
     NUDGuestHooksInit();
-    if(!isSideStore) {
+    if(!isSideStore && !isUTM) {
         SecItemGuestHooksInit();
         NSFMGuestHooksInit();
         initDead10ccFix();
@@ -530,7 +537,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     // ignore setting handler from guest app
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);
     
-    BOOL hookDlopen = !isSideStore && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
+    BOOL hookDlopen = !isSideStore && !isUTM && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
     DyldHooksInit([guestAppInfo[@"hideLiveContainer"] boolValue], hookDlopen, [guestAppInfo[@"spoofSDKVersion"] unsignedIntValue]);
     
     if([guestContainerInfo[@"spoofIdentifierForVendor"] boolValue]) {
@@ -610,7 +617,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         }
     }
     
-    if(isSideStore) {
+    if(isSideStore || isUTM) {
         tweakLoaderLoaded = true;
         dlopen([lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/TweakLoader.dylib"].UTF8String, RTLD_LAZY|RTLD_GLOBAL);
     }
@@ -901,8 +908,10 @@ int LiveContainerMain(int argc, char *argv[]) {
     
     if(isLiveProcess) {
         sideStoreExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"../../Frameworks/SideStoreApp.framework"]];
+        utmExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"../../Frameworks/UTMApp.framework"]];
     } else {
         sideStoreExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"]];
+        utmExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/UTMApp.framework"]];
     }
 
     if([lcUserDefaults boolForKey:@"LCOpenSideStore"] || [selectedApp isEqualToString:@"builtinSideStore"]) {
@@ -912,8 +921,14 @@ int LiveContainerMain(int argc, char *argv[]) {
             [lcUserDefaults setBool:NO forKey:@"LCOpenSideStore"];
         }
     }
+
+    if([selectedApp isEqualToString:@"builtinUTM"]) {
+        if(utmExist) {
+            isUTM = true;
+        }
+    }
     
-    if(selectedApp && !isSideStore && !selectedContainer) {
+    if(selectedApp && !isSideStore && !isUTM && !selectedContainer) {
         selectedContainer = [LCSharedUtils findDefaultContainerWithBundleId:selectedApp];
     }
     NSString* runningLC = [LCSharedUtils getContainerUsingLCSchemeWithFolderName:selectedContainer];
@@ -964,7 +979,7 @@ int LiveContainerMain(int argc, char *argv[]) {
     }
     NSSetUncaughtExceptionHandler(&exceptionHandler);
     installTinkerCrashHandlers();
-    if (selectedApp || isSideStore) {
+    if (selectedApp || isSideStore || isUTM) {
         TinkerSetupLiveLogOverlay();
         [lcUserDefaults removeObjectForKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];
