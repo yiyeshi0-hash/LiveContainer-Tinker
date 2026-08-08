@@ -248,7 +248,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             helpPresent = true
                         }
                     }
-                    if(UserDefaults.utmExist()) {
+                    if(FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/UTMApp.framework/UTM")) {
                         Button {
                             LCUtils.openUTM(delegate: self)
                         } label: {

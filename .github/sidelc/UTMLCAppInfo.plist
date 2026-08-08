@@ -28,6 +28,6 @@
 	<key>is32bit</key>
 	<false/>
 	<key>isJITNeeded</key>
-	<true/>
+	<false/>
 </dict>
 </plist>
