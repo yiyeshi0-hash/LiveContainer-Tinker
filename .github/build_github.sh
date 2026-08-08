@@ -21,7 +21,7 @@ mv tmp/Payload/UTM.app Payload/LiveContainer.app/Frameworks/UTMApp.framework
 rm Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
 mv Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM.dylib Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
 ldid -S"" Payload/LiveContainer.app/Frameworks/UTMApp.framework/UTM
-cp ./.github/sidelc/UTMLCAppInfo.plist Payload/LiveContainer.app/Frameworks/UTMApp.framework/
+cp ./.github/sidelc/UTMLCAppInfo.plist Payload/LiveContainer.app/Frameworks/UTMApp.framework/LCAppInfo.plist
 for f in $(find Payload/LiveContainer.app/Frameworks/UTMApp.framework -type f); do
     if file "$f" | grep -q "Mach-O"; then
         ldid -S"" "$f"
