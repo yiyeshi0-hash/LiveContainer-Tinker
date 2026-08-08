@@ -35,6 +35,12 @@ static void *LCQEMUThreadMain(void *arg) {
         NSDictionary *context = (__bridge_transfer NSDictionary *)arg;
         NSArray<NSString *> *arguments = context[@"argv"];
         NSDictionary<NSString *, NSString *> *environment = context[@"env"];
+        NSString *logPath = context[@"logPath"];
+
+        if (logPath.length > 0) {
+            freopen(logPath.UTF8String, "w", stderr);
+            freopen(logPath.UTF8String, "a", stdout);
+        }
 
         setenv("TMPDIR", NSTemporaryDirectory().UTF8String, 1);
         chdir(NSTemporaryDirectory().UTF8String);
@@ -69,7 +75,7 @@ static void *LCQEMUThreadMain(void *arg) {
     return NULL;
 }
 
-NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments) {
+NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments, NSString *logPath) {
     if (gQEMUThreadStarted) {
         return @"QEMU already running";
     }
@@ -101,7 +107,8 @@ NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments) {
     gQEMUThreadStarted = YES;
     NSDictionary *context = @{
         @"argv": arguments,
-        @"env": [[NSProcessInfo processInfo] environment]
+        @"env": [[NSProcessInfo processInfo] environment],
+        @"logPath": logPath ?: @""
     };
     pthread_attr_t attribute;
     pthread_attr_init(&attribute);

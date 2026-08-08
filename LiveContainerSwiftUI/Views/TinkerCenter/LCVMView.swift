@@ -413,7 +413,14 @@ struct LCVMView: View {
 
     private func loadLogs(_ vm: LCVMModel) {
         let logURL = LCVMStore.folderURL(for: vm).appendingPathComponent("vm.log")
-        logContent = (try? String(contentsOf: logURL, encoding: .utf8)) ?? "暂无日志"
+        let vmLog = (try? String(contentsOf: logURL, encoding: .utf8)) ?? ""
+        let qemuLog = (try? String(contentsOfFile: QEMURunner.qemuLogPath, encoding: .utf8)) ?? ""
+        logContent = [vmLog, qemuLog]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n--- QEMU ---\n")
+        if logContent.isEmpty {
+            logContent = "暂无日志"
+        }
         showLogs = true
     }
 

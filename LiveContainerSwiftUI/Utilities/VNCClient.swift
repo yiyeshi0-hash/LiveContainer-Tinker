@@ -31,14 +31,10 @@ final class VNCClient: ObservableObject {
         case running
     }
 
-    func connect(host: String, port: UInt16) {
+    func connect(unixPath: String) {
         state = .connecting
         status = "连接中..."
-        let connection = NWConnection(
-            host: NWEndpoint.Host(host),
-            port: NWEndpoint.Port(rawValue: port)!,
-            using: .tcp
-        )
+        let connection = NWConnection(to: .unix(path: unixPath), using: .tcp)
         self.connection = connection
         connection.stateUpdateHandler = { [weak self] state in
             switch state {

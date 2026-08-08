@@ -15,7 +15,7 @@ struct VNCView: View {
         VStack(spacing: 0) {
             HStack {
                 Button("连接") {
-                    client.connect(host: "127.0.0.1", port: 5900)
+                    client.connect(unixPath: QEMURunner.vncSocketPath)
                 }
                 .buttonStyle(.bordered)
 

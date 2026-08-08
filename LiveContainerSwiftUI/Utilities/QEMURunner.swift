@@ -2,6 +2,17 @@ import Foundation
 
 enum QEMURunner {
     private static var lastError: String?
+    private static var lastLogPath = ""
+
+    static var vncSocketPath: String {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("lc-vnc.sock")
+            .path
+    }
+
+    static var qemuLogPath: String {
+        lastLogPath
+    }
 
     static var isRunning: Bool {
         LCQEMUIsRunning()
@@ -34,6 +45,12 @@ enum QEMURunner {
             lastError = "QEMU 运行时或资源目录未找到"
             return false
         }
+        try? FileManager.default.removeItem(atPath: vncSocketPath)
+        let logPath = URL(fileURLWithPath: diskPath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("qemu.log")
+            .path
+        lastLogPath = logPath
 
         var args = [
             "qemu-system-x86_64",
@@ -44,18 +61,21 @@ enum QEMURunner {
             "-m", "2048",
             "-nodefaults",
             "-display", "none",
-            "-vnc", "127.0.0.1:5900",
+            "-vga", "std",
+            "-vnc", "unix:\(vncSocketPath)",
         ]
         if FileManager.default.fileExists(atPath: diskPath) {
             let format = diskPath.lowercased().hasSuffix(".qcow2") ? "qcow2" : "raw"
-            args.append(contentsOf: ["-drive", "file=\(diskPath),format=\(format),if=ide"])
+            args.append(contentsOf: [
+                "-drive", "file=\(diskPath),format=\(format),if=ide,file.locking=off",
+            ])
         }
         if let isoPath {
             args.append(contentsOf: ["-cdrom", isoPath])
             args.append(contentsOf: ["-boot", "d"])
         }
 
-        if let error = LCLaunchQEMU(runtimePath, args) {
+        if let error = LCLaunchQEMU(runtimePath, args, logPath) {
             lastError = error
             return false
         }
