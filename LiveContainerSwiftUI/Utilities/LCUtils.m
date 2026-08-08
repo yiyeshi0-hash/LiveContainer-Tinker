@@ -5,6 +5,11 @@
 @import Security;
 #import <pthread.h>
 #import <dlfcn.h>
+#import <signal.h>
+#import <setjmp.h>
+#import <fcntl.h>
+#import <unistd.h>
+#import <string.h>
 
 #import "LCUtils.h"
 #import "../../LiveContainer/LCSharedUtils.h"
@@ -22,6 +27,9 @@ typedef struct {
 static pthread_t gQEMUThread;
 static BOOL gQEMUThreadStarted = NO;
 static LCQEMUFunctions gQEMUFunctions;
+static sigjmp_buf gQEMUJumpBuffer;
+static volatile sig_atomic_t gQEMUJumpReady = 0;
+static char gQEMULogPath[1024];
 
 static void LCQEMUExitHandler(void) {
     if (gQEMUThreadStarted && pthread_equal(pthread_self(), gQEMUThread)) {
@@ -30,6 +38,23 @@ static void LCQEMUExitHandler(void) {
         fflush(stdout);
         pthread_exit(NULL);
     }
+}
+
+static void LCQEMUSignalHandler(int signo) {
+    if (!gQEMUJumpReady || !pthread_equal(pthread_self(), gQEMUThread)) {
+        signal(signo, SIG_DFL);
+        raise(signo);
+        return;
+    }
+    int fd = open(gQEMULogPath, O_WRONLY | O_CREAT | O_APPEND, 0644);
+    if (fd >= 0) {
+        char message[256];
+        int length = snprintf(message, sizeof(message), "\nQEMU signal %d on qemu thread\n", signo);
+        write(fd, message, (size_t)length);
+        close(fd);
+    }
+    gQEMUJumpReady = 0;
+    siglongjmp(gQEMUJumpBuffer, 1);
 }
 
 static void *LCQEMUThreadMain(void *arg) {
@@ -76,8 +101,33 @@ static void *LCQEMUThreadMain(void *arg) {
         fprintf(stderr, "qemu_init returned %d\n", result);
         fflush(stderr);
         if (result == 0) {
-            gQEMUFunctions.qemu_main_loop();
-            gQEMUFunctions.qemu_cleanup();
+            fprintf(stderr, "calling qemu_main_loop\n");
+            fflush(stderr);
+
+            struct sigaction action;
+            memset(&action, 0, sizeof(action));
+            action.sa_handler = LCQEMUSignalHandler;
+            sigemptyset(&action.sa_mask);
+            sigaction(SIGSEGV, &action, NULL);
+            sigaction(SIGABRT, &action, NULL);
+            sigaction(SIGBUS, &action, NULL);
+            sigaction(SIGILL, &action, NULL);
+
+            volatile sig_atomic_t interrupted = 0;
+            if (sigsetjmp(gQEMUJumpBuffer, 1) == 0) {
+                gQEMUJumpReady = 1;
+                gQEMUFunctions.qemu_main_loop();
+                gQEMUJumpReady = 0;
+                fprintf(stderr, "qemu_main_loop returned\n");
+            } else {
+                interrupted = 1;
+                gQEMUJumpReady = 0;
+                fprintf(stderr, "qemu_main_loop interrupted by signal\n");
+            }
+            fflush(stderr);
+            if (!interrupted) {
+                gQEMUFunctions.qemu_cleanup();
+            }
         }
         fflush(stderr);
         fflush(stdout);
@@ -98,6 +148,8 @@ NSString *LCLaunchQEMU(NSString *dylibPath, NSArray *arguments, NSString *logPat
         freopen(logPath.UTF8String, "a", stdout);
         fprintf(stderr, "LCLaunchQEMU begin, dlopen %s\n", dylibPath.UTF8String);
         fflush(stderr);
+        strncpy(gQEMULogPath, logPath.UTF8String, sizeof(gQEMULogPath) - 1);
+        gQEMULogPath[sizeof(gQEMULogPath) - 1] = '\0';
     }
 
     void *handle = dlopen(dylibPath.UTF8String, RTLD_LOCAL | RTLD_LAZY);
