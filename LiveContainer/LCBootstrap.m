@@ -526,7 +526,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     // hook NSUserDefault before running libraries' initializers
     NUDGuestHooksInit();
-    if(!isSideStore && !isUTM) {
+    if(!isSideStore) {
         SecItemGuestHooksInit();
         NSFMGuestHooksInit();
         initDead10ccFix();
