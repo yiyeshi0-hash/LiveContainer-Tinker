@@ -80,6 +80,19 @@ struct TinkerCenterView: View {
                             }
                         }
 
+                        Section("内置") {
+                            if FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/UTMApp.framework/UTM") {
+                                Button {
+                                    LCUtils.openUTM()
+                                } label: {
+                                    Label("UTM 虚拟机", systemImage: "cpu")
+                                }
+                            } else {
+                                Text("UTM 未内置")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
                         Section {
                             TextField("搜索 App、Bundle ID 或标签", text: $searchText)
                         }
