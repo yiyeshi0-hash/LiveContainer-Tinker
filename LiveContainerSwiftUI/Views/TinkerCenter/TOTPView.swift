@@ -1,4 +1,5 @@
 import Combine
+import AVFoundation
 import CryptoKit
 import Foundation
 import Security
@@ -290,6 +291,7 @@ private struct TOTPAddView: View {
     @State private var account = ""
     @State private var secretOrURI = ""
     @State private var errorMessage: String?
+    @State private var showScanner = false
 
     var body: some View {
         NavigationView {
@@ -302,6 +304,11 @@ private struct TOTPAddView: View {
                     TextField("otpauth:// 或 Base32 密钥", text: $secretOrURI)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                    Button {
+                        showScanner = true
+                    } label: {
+                        Label("扫码添加", systemImage: "qrcode.viewfinder")
+                    }
                 }
                 if let errorMessage {
                     Section {
@@ -327,5 +334,105 @@ private struct TOTPAddView: View {
                 }
             }
         }
+        .sheet(isPresented: $showScanner) {
+            NavigationView {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    QRCodeScannerView(
+                        onCode: { code in
+                            do {
+                                try store.add(issuer: issuer, account: account, secretOrURI: code)
+                                dismiss()
+                            } catch {
+                                errorMessage = error.localizedDescription
+                                showScanner = false
+                            }
+                        },
+                        onCancel: {
+                            showScanner = false
+                        }
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .padding(32)
+                }
+                .navigationTitle("扫描二维码")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("取消") { showScanner = false }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct QRCodeScannerView: UIViewControllerRepresentable {
+    let onCode: (String) -> Void
+    let onCancel: () -> Void
+
+    func makeUIViewController(context: Context) -> QRCodeScannerViewController {
+        let controller = QRCodeScannerViewController()
+        controller.onCode = onCode
+        controller.onCancel = onCancel
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: QRCodeScannerViewController, context: Context) {}
+}
+
+private final class QRCodeScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+    var onCode: ((String) -> Void)?
+    var onCancel: (() -> Void)?
+
+    private let session = AVCaptureSession()
+    private let previewLayer = AVCaptureVideoPreviewLayer()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+
+        guard let device = AVCaptureDevice.default(for: .video),
+              let input = try? AVCaptureDeviceInput(device: device),
+              session.canAddInput(input) else {
+            return
+        }
+        session.addInput(input)
+
+        let output = AVCaptureMetadataOutput()
+        guard session.canAddOutput(output) else { return }
+        session.addOutput(output)
+        output.setMetadataObjectsDelegate(self, queue: .main)
+        output.metadataObjectTypes = [.qr]
+
+        previewLayer.session = session
+        previewLayer.videoGravity = .resizeAspectFill
+        view.layer.addSublayer(previewLayer)
+        session.startRunning()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        previewLayer.frame = view.bounds
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if session.isRunning {
+            session.stopRunning()
+        }
+    }
+
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput,
+        didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
+        guard let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+              let value = object.stringValue else {
+            return
+        }
+        session.stopRunning()
+        onCode?(value)
     }
 }
