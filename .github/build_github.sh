@@ -61,6 +61,7 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 cd tmp
 wget -q https://github.com/LiveContainer/LiveContainer/releases/download/3.8.0/LiveContainer+SideStore.ipa
 unzip -q LiveContainer+SideStore.ipa "Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/*"
+unzip -q LiveContainer+SideStore.ipa "Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/*"
 cd ..
 
 # SideStore
@@ -75,12 +76,9 @@ cp -r ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/Metadata.app
 sed -i '' 's/9SideStore20RefreshAllAppsIntentV/16SideStoreSupport20RefreshAllAppsIntentV/g' ./Payload/LiveContainer.app/Metadata.appintents/extract.actionsdata
 sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26RefreshAllAppsWidgetIntentV/g' ./Payload/LiveContainer.app/Metadata.appintents/extract.actionsdata
 
-# AltWidgetExtension
-mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
-cp -r ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/Frameworks ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer.LiveWidget"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
-/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LiveWidgetExtension"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
-mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
+# LiveWidgetExtension from official LiveContainer+SideStore
+rm -rf ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
+mv ./tmp/Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
 
 # Sign
 rm -r .zsign_cache
