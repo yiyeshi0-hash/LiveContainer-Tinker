@@ -799,19 +799,26 @@ static void installTinkerCrashHandlers(void) {
     [gesture setTranslation:CGPointZero inView:self.view];
 }
 
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *hit = [super hitTest:point withEvent:event];
-    if (hit == self.view) {
-        return nil;
-    }
-    return hit;
-}
-
 - (void)openLog {
     TinkerLiveLogViewController *vc = [[TinkerLiveLogViewController alloc] init];
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
     nav.modalPresentationStyle = UIModalPresentationPageSheet;
     [self presentViewController:nav animated:YES completion:nil];
+}
+
+@end
+
+@interface TinkerLogOverlayWindow : UIWindow
+@end
+
+@implementation TinkerLogOverlayWindow
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    if (hit == self.rootViewController.view) {
+        return nil;
+    }
+    return hit;
 }
 
 @end
@@ -833,7 +840,7 @@ void TinkerSetupLiveLogOverlay(void) {
         }
         if (!scene) return;
 
-        gLogWindow = [[UIWindow alloc] initWithWindowScene:scene];
+        gLogWindow = [[TinkerLogOverlayWindow alloc] initWithWindowScene:scene];
         gLogWindow.windowLevel = UIWindowLevelNormal;
         gLogWindow.frame = CGRectMake(UIScreen.mainScreen.bounds.size.width - 70, 64, 70, 36);
         gLogWindow.backgroundColor = UIColor.clearColor;
