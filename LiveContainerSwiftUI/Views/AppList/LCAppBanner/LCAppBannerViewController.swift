@@ -125,7 +125,8 @@ final class LCAppBannerViewController: UIViewController, UIContextMenuInteractio
         }
 
         do {
-            try await configuration.model.runApp(multitask: multitask)
+            let bundleIdOverride = configuration.model.appInfo is BuiltInUTMAppInfo ? "builtinUTM" : nil
+            try await configuration.model.runApp(multitask: multitask, bundleIdOverride: bundleIdOverride)
         } catch {
             showError(error.localizedDescription)
         }

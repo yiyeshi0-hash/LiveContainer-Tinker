@@ -23,6 +23,7 @@ struct TinkerCenterView: View {
     @State private var editingApp: LCAppModel?
     @State private var refreshToken = UUID()
     @State private var mode = 0
+    private let builtInUTMApp = LCAppModel(appInfo: BuiltInUTMAppInfo.shared)
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -82,11 +83,8 @@ struct TinkerCenterView: View {
 
                         Section("内置") {
                             if FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/UTMApp.framework/UTM") {
-                                Button {
-                                    LCUtils.openUTM()
-                                } label: {
-                                    Label("UTM 虚拟机", systemImage: "cpu")
-                                }
+                                LCAppBanner(appModel: builtInUTMApp, delegate: self)
+                                    .frame(height: 88)
                             } else {
                                 Text("UTM 未内置")
                                     .foregroundStyle(.secondary)
@@ -581,6 +579,13 @@ private struct TinkerIPAScanView: View {
     private func install(_ url: URL) {
         NotificationCenter.default.post(name: NSNotification.InstallAppNotification, object: ["url": url])
     }
+}
+
+extension TinkerCenterView: LCAppBannerDelegate {
+    func removeApp(app: LCAppModel) {}
+    func installMdm(data: Data) {}
+    func openNavigationView(view: AnyView) {}
+    func promptForGeneratedIconStyle() async -> GeneratedIconStyle? { nil }
 }
 
 struct TinkerInfoRow: View {
