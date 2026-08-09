@@ -200,11 +200,15 @@ enum TOTPGenerator {
 
 struct TOTPView: View {
     @ObservedObject private var store = TOTPStore.shared
+    @AppStorage("totpAutoCopy") private var autoCopy = false
     @State private var showAdd = false
     @State private var now = Date()
     @State private var copiedID: String?
 
     var body: some View {
+        Toggle("自动复制验证码", isOn: $autoCopy)
+            .padding(.horizontal)
+            .padding(.vertical, 6)
         List {
             if store.accounts.isEmpty {
                 Section {
@@ -218,7 +222,8 @@ struct TOTPView: View {
                     account: account,
                     code: store.code(for: account, at: now),
                     remaining: store.remainingSeconds(for: account, at: now),
-                    copied: copiedID == account.id
+                    copied: copiedID == account.id,
+                    autoCopy: autoCopy
                 ) {
                     UIPasteboard.general.string = store.code(for: account, at: now)
                     copiedID = account.id
@@ -257,6 +262,7 @@ private struct TOTPRow: View {
     let code: String
     let remaining: Int
     let copied: Bool
+    let autoCopy: Bool
     let onCopy: () -> Void
 
     var body: some View {
@@ -272,8 +278,7 @@ private struct TOTPRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(code)
                     .font(.system(size: 22, weight: .bold, design: .monospaced))
-                ProgressView(value: Double(remaining), total: Double(account.period))
-                    .frame(width: 70)
+                TOTPRing(remaining: remaining, period: account.period)
             }
             Button(action: onCopy) {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
@@ -281,6 +286,34 @@ private struct TOTPRow: View {
             .buttonStyle(.borderless)
         }
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onCopy)
+        .onChange(of: code) { newCode in
+            if autoCopy {
+                onCopy()
+            }
+        }
+    }
+}
+
+private struct TOTPRing: View {
+    let remaining: Int
+    let period: Int
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.gray.opacity(0.2), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: max(0, min(1, CGFloat(remaining) / CGFloat(period))))
+                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 1), value: remaining)
+            Text("\(remaining)")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 34, height: 34)
     }
 }
 
