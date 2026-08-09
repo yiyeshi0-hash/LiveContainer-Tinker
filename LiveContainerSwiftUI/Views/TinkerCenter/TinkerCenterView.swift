@@ -24,7 +24,7 @@ struct TinkerCenterView: View {
     @State private var refreshToken = UUID()
     @State private var mode = 0
     @State private var presentedNavigationView: AnyView?
-    private let builtInUTMApp = LCAppModel(appInfo: BuiltInUTMAppInfo.shared)
+    @State private var builtInUTMApp = LCAppModel(appInfo: BuiltInUTMAppInfo.shared)
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
@@ -159,6 +159,9 @@ struct TinkerCenterView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear {
+            builtInUTMApp.delegate = self
+        }
         .sheet(isPresented: Binding(
             get: { presentedNavigationView != nil },
             set: { if !$0 { presentedNavigationView = nil } }
@@ -588,13 +591,56 @@ private struct TinkerIPAScanView: View {
     }
 }
 
-extension TinkerCenterView: LCAppBannerDelegate {
+extension TinkerCenterView: LCAppBannerDelegate, LCAppModelDelegate {
     func removeApp(app: LCAppModel) {}
     func installMdm(data: Data) {}
     func openNavigationView(view: AnyView) {
-        presentedNavigationView = view
+        presentedNavigationView = AnyView(
+            NavigationView {
+                view
+            }
+            .navigationViewStyle(.stack)
+        )
     }
     func promptForGeneratedIconStyle() async -> GeneratedIconStyle? { nil }
+
+    func closeNavigationView() {
+        presentedNavigationView = nil
+    }
+
+    func changeAppVisibility(app: LCAppModel) {}
+
+    func jitLaunch(appName: String, classicMode: UInt) async {
+        await jitLaunch(withScript: "", appName: appName, classicMode: classicMode)
+    }
+
+    func jitLaunch(withScript script: String, appName: String, classicMode: UInt) async {
+        _ = await LCUtils.askForJIT(withScript: script, appName: appName, classicMode: classicMode)
+        LCSharedUtils.launchToGuestApp(withClassicMode: classicMode)
+    }
+
+    func jitLaunch(withPID pid: Int, withScript script: String? = nil, appName: String) async {
+        guard let jitEnabler = JITEnablerType(rawValue: LCUtils.appGroupUserDefault.integer(forKey: "LCJITEnablerType")) else {
+            return
+        }
+        let encoded = script?.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        switch jitEnabler {
+        case .StikJIT, .StikJITLC:
+            if let url = URL(string: "stikjit://enable-jit?bundle-id=\(Bundle.main.bundleIdentifier!)&pid=\(pid)\(encoded.isEmpty ? "" : "&script-data=\(encoded)")") {
+                await UIApplication.shared.open(url)
+            }
+        case .StosDebug, .StosDebugLC:
+            if let url = URL(string: "stosdebug://enableJIT?bundleId=\(Bundle.main.bundleIdentifier!)&appName=\(appName)&pid=\(pid)&relaunchApp=false&forcePID=true\(encoded.isEmpty ? "" : "&script=\(encoded)")") {
+                await UIApplication.shared.open(url)
+            }
+        default:
+            _ = await LCUtils.askForJIT(withScript: script, appName: appName)
+        }
+    }
+
+    func showRunWhenMultitaskAlert() async -> Bool? {
+        true
+    }
 }
 
 struct TinkerInfoRow: View {

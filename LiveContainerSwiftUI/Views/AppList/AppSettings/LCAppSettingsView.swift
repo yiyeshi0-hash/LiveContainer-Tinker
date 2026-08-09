@@ -33,6 +33,7 @@ struct LCAppSettingsView: View {
     @StateObject private var signUnsignedAlert = YesNoHelper()
     @StateObject private var addExternalNonLocalContainerWarningAlert = YesNoHelper()
     @State var choosingStorage = false
+    @State private var showJITScriptImporter = false
     
     @State private var errorShow = false
     @State private var errorInfo = ""
@@ -170,25 +171,7 @@ struct LCAppSettingsView: View {
                                 .foregroundColor(.gray)
                         }
                         Button(action: {
-                            // This will trigger the file picker
-                            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.javaScript], asCopy: true)
-                            picker.allowsMultipleSelection = false
-                            documentPickerCoordinator.onDocumentPicked = { url in
-                                do {
-                                    let data = try Data(contentsOf: url)
-                                    // Store the Base64-encoded string of the file content
-                                    model.jitLaunchScriptJs = data.base64EncodedString()
-                                } catch {
-                                    errorInfo = "Failed to read file: \(error.localizedDescription)"
-                                    errorShow = true
-                                }
-                            }
-                            picker.delegate = documentPickerCoordinator
-
-                            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                               let rootViewController = windowScene.windows.first?.rootViewController {
-                                rootViewController.present(picker, animated: true)
-                            }
+                            showJITScriptImporter = true
                         }) {
                             Text("lc.common.select".loc)
                         }
@@ -464,6 +447,9 @@ struct LCAppSettingsView: View {
         .fileImporter(isPresented: $choosingStorage, allowedContentTypes: [.folder]) { result in
             Task { await importDataStorage(result: result) }
         }
+        .fileImporter(isPresented: $showJITScriptImporter, allowedContentTypes: [.javaScript]) { result in
+            handleJITScriptImport(result)
+        }
     }
 
     func createFolder() async {
@@ -724,6 +710,17 @@ struct LCAppSettingsView: View {
             errorShow = true
             errorInfo = error.localizedDescription
             return
+        }
+    }
+
+    private func handleJITScriptImport(_ result: Result<URL, any Error>) {
+        do {
+            let url = try result.get()
+            let data = try Data(contentsOf: url)
+            model.jitLaunchScriptJs = data.base64EncodedString()
+        } catch {
+            errorInfo = "Failed to read file: \(error.localizedDescription)"
+            errorShow = true
         }
     }
     
