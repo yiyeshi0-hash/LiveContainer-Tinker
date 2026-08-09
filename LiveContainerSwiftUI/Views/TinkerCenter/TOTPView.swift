@@ -276,8 +276,7 @@ private struct TOTPRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
-                Text(code)
-                    .font(.system(size: 22, weight: .bold, design: .monospaced))
+                TOTPCodeText(code: code)
                 TOTPRing(remaining: remaining, period: account.period)
             }
             Button(action: onCopy) {
@@ -293,6 +292,24 @@ private struct TOTPRow: View {
                 onCopy()
             }
         }
+    }
+}
+
+private struct TOTPCodeText: View {
+    let code: String
+
+    var body: some View {
+        Group {
+            if #available(iOS 16.0, *) {
+                Text(code)
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.32, dampingFraction: 0.82), value: code)
+            } else {
+                Text(code)
+            }
+        }
+        .font(.system(size: 22, weight: .bold, design: .monospaced))
+        .monospacedDigit()
     }
 }
 

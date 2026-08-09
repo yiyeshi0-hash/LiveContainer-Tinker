@@ -51,7 +51,7 @@ struct LCAppSettingsView: View {
                 HStack {
                     Text("lc.appSettings.bundleId".loc)
                     Spacer()
-                    Text(appInfo.relativeBundlePath)
+                    Text(appInfo.relativeBundlePath ?? "UTM")
                         .foregroundColor(.gray)
                         .multilineTextAlignment(.trailing)
                         .textSelection(.enabled)
