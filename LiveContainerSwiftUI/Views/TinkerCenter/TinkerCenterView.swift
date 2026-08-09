@@ -23,6 +23,7 @@ struct TinkerCenterView: View {
     @State private var editingApp: LCAppModel?
     @State private var refreshToken = UUID()
     @State private var mode = 0
+    @State private var presentedNavigationView: AnyView?
     private let builtInUTMApp = LCAppModel(appInfo: BuiltInUTMAppInfo.shared)
 
     private var appVersion: String {
@@ -158,6 +159,12 @@ struct TinkerCenterView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: Binding(
+            get: { presentedNavigationView != nil },
+            set: { if !$0 { presentedNavigationView = nil } }
+        )) {
+            presentedNavigationView
+        }
     }
 }
 
@@ -584,7 +591,9 @@ private struct TinkerIPAScanView: View {
 extension TinkerCenterView: LCAppBannerDelegate {
     func removeApp(app: LCAppModel) {}
     func installMdm(data: Data) {}
-    func openNavigationView(view: AnyView) {}
+    func openNavigationView(view: AnyView) {
+        presentedNavigationView = view
+    }
     func promptForGeneratedIconStyle() async -> GeneratedIconStyle? { nil }
 }
 
