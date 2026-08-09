@@ -308,7 +308,7 @@ private struct TOTPCodeText: View {
                 Text(code)
             }
         }
-        .font(.system(size: 22, weight: .bold, design: .monospaced))
+        .font(.system(size: 24, weight: .semibold, design: .rounded))
         .monospacedDigit()
     }
 }
@@ -323,7 +323,7 @@ private struct TOTPRing: View {
                 .stroke(Color.gray.opacity(0.2), lineWidth: 4)
             Circle()
                 .trim(from: 0, to: max(0, min(1, CGFloat(remaining) / CGFloat(period))))
-                .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(Color.green, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: remaining)
             Text("\(remaining)")

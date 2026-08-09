@@ -790,13 +790,21 @@ static void installTinkerCrashHandlers(void) {
     [self.view addSubview:button];
 
     UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(pan:)];
-    [self.view addGestureRecognizer:pan];
+    [button addGestureRecognizer:pan];
 }
 
 - (void)pan:(UIPanGestureRecognizer *)gesture {
     CGPoint t = [gesture translationInView:self.view];
     self.view.window.center = CGPointMake(self.view.window.center.x + t.x, self.view.window.center.y + t.y);
     [gesture setTranslation:CGPointZero inView:self.view];
+}
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    UIView *hit = [super hitTest:point withEvent:event];
+    if (hit == self.view) {
+        return nil;
+    }
+    return hit;
 }
 
 - (void)openLog {
@@ -826,7 +834,7 @@ void TinkerSetupLiveLogOverlay(void) {
         if (!scene) return;
 
         gLogWindow = [[UIWindow alloc] initWithWindowScene:scene];
-        gLogWindow.windowLevel = UIWindowLevelNormal + 1;
+        gLogWindow.windowLevel = UIWindowLevelNormal;
         gLogWindow.frame = CGRectMake(UIScreen.mainScreen.bounds.size.width - 70, 64, 70, 36);
         gLogWindow.backgroundColor = UIColor.clearColor;
         gLogWindow.rootViewController = [[TinkerLogOverlayRootVC alloc] init];
