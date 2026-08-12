@@ -34,6 +34,8 @@ unzip -q ../.github/sidelc/WebDriverAgentRunner-Runner.ipa "Payload/WebDriverAge
 cd ..
 mkdir -p Payload/LiveContainer.app/Frameworks
 mv tmp/Payload/WebDriverAgentRunner-Runner.app Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
+/usr/libexec/PlistBuddy -c "Set :CFBundlePackageType FMWK" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/Info.plist
+rm -f Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/PkgInfo
 ./dylibify Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib
 rm Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
 mv Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
