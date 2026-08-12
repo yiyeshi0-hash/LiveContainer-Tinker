@@ -36,9 +36,11 @@ mkdir -p Payload/LiveContainer.app/Frameworks
 mv tmp/Payload/WebDriverAgentRunner-Runner.app Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
 /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType FMWK" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/Info.plist
 rm -f Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/PkgInfo
-./dylibify Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib
-rm Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
-mv Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
+WDA_FRAMEWORK=Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
+lipo -thin arm64 -output "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner"
+./dylibify "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.dylib"
+rm "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin"
+mv "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.dylib" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner"
 ldid -S"" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
 cp ./.github/sidelc/WDALCAppInfo.plist Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/LCAppInfo.plist
 for f in $(find Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework -type f); do
