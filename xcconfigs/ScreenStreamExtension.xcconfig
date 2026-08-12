@@ -1,0 +1,7 @@
+//
+//  ScreenStreamExtension.xcconfig
+//
+
+#include "Global.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = $(LIVECONTAINER_BUNDLE_IDENTIFIER).ScreenStreamExtension

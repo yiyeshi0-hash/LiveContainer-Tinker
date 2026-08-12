@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>LCContainers</key>
+	<array>
+		<dict>
+			<key>folderName</key>
+			<string>8F4E9A6D-0A1B-4C2D-8E3F-9A0B1C2D3E4F</string>
+			<key>isolateAppGroup</key>
+			<false/>
+			<key>name</key>
+			<string>8F4E9A6D-0A1B-4C2D-8E3F-9A0B1C2D3E4F</string>
+		</dict>
+	</array>
+	<key>LCDataUUID</key>
+	<string>8F4E9A6D-0A1B-4C2D-8E3F-9A0B1C2D3E4F</string>
+	<key>LCPatchRevision</key>
+	<integer>99999</integer>
+	<key>MultitaskSpecified</key>
+	<integer>1</integer>
+	<key>dontInjectTweakLoader</key>
+	<true/>
+	<key>dontLoadTweakLoader</key>
+	<true/>
+	<key>is32bit</key>
+	<false/>
+	<key>dontSign</key>
+	<true/>
+	<key>fixFilePickerNew</key>
+	<true/>
+	<key>doSymlinkInbox</key>
+	<true/>
+</dict>
+</plist>

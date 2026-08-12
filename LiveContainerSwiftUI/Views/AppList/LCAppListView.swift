@@ -72,6 +72,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State private var isNavigationActive = false
     
     @State private var helpPresent = false
+    @State private var screenStreamPresent = false
     
     @State private var customSortViewPresent = false
     
@@ -256,6 +257,18 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                                 .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
                         }
                     }
+                    Button {
+                        screenStreamPresent = true
+                    } label: {
+                        Image(systemName: "record.circle")
+                    }
+                    if FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner") {
+                        Button {
+                            LCUtils.openWDA(delegate: self)
+                        } label: {
+                            Image(systemName: "terminal.fill")
+                        }
+                    }
                     
 
                 }
@@ -295,6 +308,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .sheet(isPresented: $screenStreamPresent) {
+            NavigationView {
+                ScreenStreamSettingsView()
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+        }
         .alert("lc.common.error".loc, isPresented: $errorShow){
             Button("lc.common.ok".loc, action: {
             })

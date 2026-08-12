@@ -28,6 +28,23 @@ for f in $(find Payload/LiveContainer.app/Frameworks/UTMApp.framework -type f); 
     fi
 done
 
+# WebDriverAgent built-in
+cd tmp
+unzip -q ../.github/sidelc/WebDriverAgentRunner-Runner.ipa "Payload/WebDriverAgentRunner-Runner.app/*"
+cd ..
+mkdir -p Payload/LiveContainer.app/Frameworks
+mv tmp/Payload/WebDriverAgentRunner-Runner.app Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
+./dylibify Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib
+rm Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
+mv Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner.dylib Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
+ldid -S"" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
+cp ./.github/sidelc/WDALCAppInfo.plist Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/LCAppInfo.plist
+for f in $(find Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework -type f); do
+    if file "$f" | grep -q "Mach-O"; then
+        ldid -S"" "$f"
+    fi
+done
+
 zip -r "$scheme.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
 
 mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks

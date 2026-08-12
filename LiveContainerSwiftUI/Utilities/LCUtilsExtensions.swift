@@ -530,4 +530,11 @@ extension LCUtils {
             try await utmApp.runApp(bundleIdOverride: "builtinUTM")
         }
     }
+
+    static func openWDA(delegate: LCAppModelDelegate? = nil) {
+        let wdaApp = LCAppModel(appInfo: BuiltInWDAAppInfo.shared, delegate: delegate)
+        Task {
+            try await wdaApp.runApp(bundleIdOverride: "builtinWDA")
+        }
+    }
 }
