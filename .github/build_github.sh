@@ -95,9 +95,8 @@ cp -r ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/Metadata.app
 sed -i '' 's/9SideStore20RefreshAllAppsIntentV/16SideStoreSupport20RefreshAllAppsIntentV/g' ./Payload/LiveContainer.app/Metadata.appintents/extract.actionsdata
 sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26RefreshAllAppsWidgetIntentV/g' ./Payload/LiveContainer.app/Metadata.appintents/extract.actionsdata
 
-# LiveWidgetExtension from official LiveContainer+SideStore
-rm -rf ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
-mv ./tmp/Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
+# ScreenStreamExtension reuses the existing LiveWidget App ID, so the old
+# SideStore widget is intentionally not embedded to avoid a duplicate ID.
 
 # Sign
 rm -r .zsign_cache
