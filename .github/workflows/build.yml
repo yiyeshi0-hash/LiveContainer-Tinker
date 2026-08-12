@@ -64,9 +64,11 @@ jobs:
           filetype_parameter: ${{ steps.filetype_parameter.outputs.filetype_parameter }}
           file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
         run: |
-          set -o pipefail
+          set +e
           xcodebuild archive -archivePath "$archive_path" -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -sdk iphoneos -arch arm64 -configuration Release > xcodebuild.log 2>&1
           rc=$?
+          set -e
+          grep -nE "error:|fatal error|failed|No such module|unable to resolve" xcodebuild.log | tail -120 || true
           tail -300 xcodebuild.log
           exit $rc
       - name: Tar Build Artifact
