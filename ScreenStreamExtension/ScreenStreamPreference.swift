@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 struct ScreenStreamPreference: Sendable {
     static let shared = ScreenStreamPreference()
@@ -8,10 +7,27 @@ struct ScreenStreamPreference: Sendable {
     var streamName = "test"
 
     static var appGroup: String? {
-        guard let task = SecTaskCreateFromSelf(nil) else { return nil }
-        let raw = SecTaskCopyValueForEntitlement(task, "com.apple.security.application-groups" as CFString, nil)
-        guard let groups = raw as? [String] else { return nil }
-        return groups.first { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil } ?? groups.first
+        let fileManager = FileManager.default
+        if let configured = Bundle.main.object(forInfoDictionaryKey: "LCAppGroup") as? String,
+           fileManager.containerURL(forSecurityApplicationGroupIdentifier: configured) != nil {
+            return configured
+        }
+
+        let components = (Bundle.main.bundleIdentifier ?? "").components(separatedBy: ".")
+        var candidates: [String] = []
+        if components.count > 4,
+           components[0] == "com",
+           components[1] == "kdt",
+           components[2] == "livecontainer",
+           components[3] != "ScreenStreamExtension" {
+            let team = components[3]
+            candidates.append("group.com.SideStore.SideStore.\(team)")
+            candidates.append("group.com.rileytestut.AltStore.\(team)")
+        }
+        candidates.append("group.com.SideStore.SideStore")
+        candidates.append("group.com.rileytestut.AltStore")
+
+        return candidates.first { fileManager.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil }
     }
 
     func makeURL() -> URL? {
