@@ -90,6 +90,11 @@ struct TinkerCenterView: View {
                                 Text("UTM 未内置")
                                     .foregroundStyle(.secondary)
                             }
+                            Button {
+                                LCUtils.openWDA(delegate: self)
+                            } label: {
+                                Label("Start WDA", systemImage: "terminal.fill")
+                            }
                             NavigationLink {
                                 TOTPView()
                             } label: {
