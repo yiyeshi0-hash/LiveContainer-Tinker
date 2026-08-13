@@ -4,7 +4,7 @@ final class BuiltInWDAAppInfo: LCAppInfo {
     static let shared = BuiltInWDAAppInfo()
 
     private override init() {
-        super.init(bundlePath: Bundle.main.bundleURL.appendingPathComponent("Frameworks/WebDriverAgentRunner-Runner.framework").path)
+        super.init(bundlePath: Bundle.main.bundleURL.appendingPathComponent("Frameworks/WDA.framework").path)
     }
 
     override func iconIsDarkIcon(_ isDarkIcon: Bool) -> UIImage! {

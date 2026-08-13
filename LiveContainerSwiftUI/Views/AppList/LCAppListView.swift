@@ -262,7 +262,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                     } label: {
                         Image(systemName: "record.circle")
                     }
-                    if FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner") {
+                    if FileManager.default.fileExists(atPath: Bundle.main.bundlePath + "/Frameworks/WDA.framework/WDA") {
                         Button {
                             LCUtils.openWDA(delegate: self)
                         } label: {

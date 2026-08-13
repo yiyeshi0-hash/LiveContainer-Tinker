@@ -33,17 +33,19 @@ cd tmp
 unzip -q ../.github/sidelc/WebDriverAgentRunner-Runner.ipa "Payload/WebDriverAgentRunner-Runner.app/*"
 cd ..
 mkdir -p Payload/LiveContainer.app/Frameworks
-mv tmp/Payload/WebDriverAgentRunner-Runner.app Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
-/usr/libexec/PlistBuddy -c "Set :CFBundlePackageType FMWK" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/Info.plist
-rm -f Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/PkgInfo
-WDA_FRAMEWORK=Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework
-lipo -thin arm64 -output "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner"
-./dylibify "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.dylib"
-rm "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.thin"
-mv "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner.dylib" "$WDA_FRAMEWORK/WebDriverAgentRunner-Runner"
-ldid -S"" Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/WebDriverAgentRunner-Runner
-cp ./.github/sidelc/WDALCAppInfo.plist Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework/LCAppInfo.plist
-for f in $(find Payload/LiveContainer.app/Frameworks/WebDriverAgentRunner-Runner.framework -type f); do
+mv tmp/Payload/WebDriverAgentRunner-Runner.app Payload/LiveContainer.app/Frameworks/WDA.framework
+mv Payload/LiveContainer.app/Frameworks/WDA.framework/WebDriverAgentRunner-Runner Payload/LiveContainer.app/Frameworks/WDA.framework/WDA
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable WDA" Payload/LiveContainer.app/Frameworks/WDA.framework/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundlePackageType FMWK" Payload/LiveContainer.app/Frameworks/WDA.framework/Info.plist
+rm -f Payload/LiveContainer.app/Frameworks/WDA.framework/PkgInfo
+WDA_FRAMEWORK=Payload/LiveContainer.app/Frameworks/WDA.framework
+lipo -thin arm64 -output "$WDA_FRAMEWORK/WDA.thin" "$WDA_FRAMEWORK/WDA"
+./dylibify "$WDA_FRAMEWORK/WDA.thin" "$WDA_FRAMEWORK/WDA.dylib"
+rm "$WDA_FRAMEWORK/WDA" "$WDA_FRAMEWORK/WDA.thin"
+mv "$WDA_FRAMEWORK/WDA.dylib" "$WDA_FRAMEWORK/WDA"
+ldid -S"" "$WDA_FRAMEWORK/WDA"
+cp ./.github/sidelc/WDALCAppInfo.plist "$WDA_FRAMEWORK/LCAppInfo.plist"
+for f in $(find "$WDA_FRAMEWORK" -type f); do
     if file "$f" | grep -q "Mach-O"; then
         ldid -S"" "$f"
     fi
